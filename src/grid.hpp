@@ -11,12 +11,12 @@ public:
         uy.resize(Ny, std::vector<T>(Nx, 0.0));
     }
 
-    // Accesso alle funzioni di distribuzione
+    // Access to distribution function 
     std::array<T, 9>& getDistribution(int x, int y) {
         return f[y][x];
     }
 
-    // Accesso a densità e velocità
+    // Access to density and velocity
     T& density(int x, int y) { return rho[y][x]; }
     T& velocityX(int x, int y) { return ux[y][x]; }
     T& velocityY(int x, int y) { return uy[y][x]; }
@@ -26,6 +26,6 @@ public:
 
 private:
     int Nx, Ny;
-    std::vector<std::vector<std::array<T, 9>>> f; // Funzioni di distribuzione
+    std::vector<std::vector<std::array<T, 9>>> f; // Distribution functions
     std::vector<std::vector<T>> rho, ux, uy;      
 };

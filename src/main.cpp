@@ -1,8 +1,30 @@
-#include <cstdlib>
-#include <iostream>
-#include "grid.hpp"
-using namespace std;
+#include "LBM.hpp"
 int main(){
- 
- 
+    size_t nx=100, ny=100;
+    double Re = 100;
+    double L = 1.0;
+    double u_lid = 1.0;
+    double nu = u_lid*L/Re;
+    double tau = 3.0*nu + 0.5;
+
+    LBM<2> solver(nx,ny,1, tau);
+
+    size_t max_steps = 10000;
+    for (size_t step = 0; step < max_steps; step++)
+    {
+        solver.simulate();
+
+        // Boundary conditions
+        for (size_t x=0; x<nx ; x++)
+        {
+            solver.setBoundaryVelocity( x , ny-1, {u_lid, 0.0});
+        }
+
+        // Error and printing check
+        if (step % (max_steps / 20) == 0) {
+            std::cout << (step * 100 / max_steps) << "% completato.\n";
+        }
+    }
+    return 0;
+    //g++ -std=c++17 -O2 -Wall *.cpp -o main
 }
