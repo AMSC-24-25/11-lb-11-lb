@@ -42,7 +42,7 @@ void LBM<dim>::simulate() {
     {
         // Macroscopic variables have to be evaluated at each time step starting from 0
         rho[node] = 0.0;
-        u[node] ={0.0};
+        u[node] ={1.0};
 
         // Evaluation
         for (size_t i=0; i<velocities.size(); i++)
@@ -57,7 +57,6 @@ void LBM<dim>::simulate() {
         for (size_t d = 0; d < dim; ++d) {
             u[node][d] /= rho[node];
         }
-
         for (size_t i=0; i<velocities.size() ; i++)
         {
             double feq = equilibrium( rho[node], u[node], velocities[i]);
@@ -121,7 +120,45 @@ void LBM<dim>::setBoundaryVelocity(size_t x, size_t y, std::array<double, dim> v
     }
 }
 
+// Funzione per esportare i dati in formato VTK
+template <size_t dim>
+void LBM<dim>::writeVTK(const std::string& filename) {
+    std::ofstream vtkFile(filename);
 
+    if (!vtkFile.is_open()) {
+        std::cerr << "Errore nell'aprire il file VTK!" << std::endl;
+        return;
+    }
+
+    // Header del file VTK
+    vtkFile << "# vtk DataFile Version 3.0\n";
+    vtkFile << "LBM Data\n";
+    vtkFile << "ASCII\n";
+    vtkFile << "DATASET STRUCTURED_POINTS\n";
+    vtkFile << "DIMENSIONS " << nx << " " << ny << " " << (dim == 3 ? nz : 1) << "\n";
+    vtkFile << "ORIGIN 0 0 0\n";
+    vtkFile << "SPACING 1 1 1\n";
+    vtkFile << "POINT_DATA " << nx * ny * (dim == 3 ? nz : 1) << "\n";
+
+    // Esportazione della densità
+    vtkFile << "SCALARS density double 1\n";
+    vtkFile << "LOOKUP_TABLE default\n";
+    for (size_t i = 0; i < nx * ny * (dim == 3 ? nz : 1); ++i) {
+        vtkFile << rho[i] << "\n";
+    }
+
+    // Esportazione della velocità (composto di componenti X, Y e Z)
+    vtkFile << "VECTORS velocity double\n";
+    for (size_t i = 0; i < nx * ny * (dim == 3 ? nz : 1); ++i) {
+        vtkFile << u[i][0] << " " << u[i][1];
+        if (dim == 3) {
+            vtkFile << " " << u[i][2];
+        }
+        vtkFile << "\n";
+    }
+
+    vtkFile.close();
+}
 
 template class LBM<2>; // for 2D
 template class LBM<3>; // for 3D

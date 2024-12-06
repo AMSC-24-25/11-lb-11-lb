@@ -1,6 +1,6 @@
 #include "LBM.hpp"
 int main(){
-    size_t nx=100, ny=100;
+    size_t nx=50, ny=50;
     double Re = 100;
     double L = 1.0;
     double u_lid = 1.0;
@@ -9,7 +9,7 @@ int main(){
 
     LBM<2> solver(nx,ny,1, tau);
 
-    size_t max_steps = 10000;
+    size_t max_steps = 100;
     for (size_t step = 0; step < max_steps; step++)
     {
         solver.simulate();
@@ -21,9 +21,11 @@ int main(){
         }
 
         // Error and printing check
-        if (step % (max_steps / 20) == 0) {
-            std::cout << (step * 100 / max_steps) << "% completato.\n";
+        int percent = (step * 100) / max_steps;
+        if (percent % 5 == 0) {
+            std::cout << percent << "% completato.\n";
         }
+        solver.writeVTK("output.vtk");
     }
     return 0;
     //g++ -std=c++17 -O2 -Wall *.cpp -o main

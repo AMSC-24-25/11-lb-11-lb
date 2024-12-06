@@ -5,6 +5,7 @@
 #include "array"
 #include "cmath"
 #include "iostream"
+#include "fstream"
 
 template <size_t dim> class LBM {
     private:
@@ -29,7 +30,7 @@ template <size_t dim> class LBM {
         double dotProduct(const std::array<double, dim>& a, const std::array<double, dim>& b);
     
         void setBoundaryVelocity(size_t x, size_t y, std::array<double, dim> velocity);
-
-
+        
+        void writeVTK(const std::string& filename);
 }; 
 #endif
