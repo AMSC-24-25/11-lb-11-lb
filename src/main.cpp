@@ -1,6 +1,6 @@
 #include "LBM.hpp"
 int main(){
-    size_t nx=50, ny=50;
+    size_t nx=10, ny=10;
     double Re = 100;
     double L = 1.0;
     double u_lid = 1.0;

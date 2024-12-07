@@ -38,11 +38,11 @@ void LBM<dim>::simulate() {
     std::vector<std::vector<double>> new_f_temp(f.size(), 
                                                 std::vector<double> (velocities.size(), 0.0));
     // Colllision has to be considered first
-    for (size_t node; node < f.size(); node++)
+    for (size_t node = 0; node < f.size(); node++)
     {
         // Macroscopic variables have to be evaluated at each time step starting from 0
         rho[node] = 0.0;
-        u[node] ={1.0};
+        u[node] ={0.0};
 
         // Evaluation
         for (size_t i=0; i<velocities.size(); i++)
@@ -50,45 +50,74 @@ void LBM<dim>::simulate() {
             rho[node] += f[node][i];
             for (size_t d=0; d<dim ; d++)
             {
-                u[node][d] = f[node][i]*velocities[i][d];
+                u[node][d] += f[node][i]*velocities[i][d];
             }
         }
+
+        if (rho[node] < 0) {
+            std::cerr << "rho[" << node << "] = "<<rho[node]<<" è negativo:  impostato a 1" << std::endl;
+            rho[node] = 1.0;
+        }
+
+        if (std::isnan(rho[node])) {
+            std::cerr << "NaN detected in rho[" << node << "]!" << std::endl;
+            exit(1);
+        }
+
         // Velocity has to be normalized
         for (size_t d = 0; d < dim; ++d) {
             u[node][d] /= rho[node];
+
+            if (std::isnan(u[node][d])) {
+                std::cerr << "NaN detected in u[" << node << "][" << d << "]!" << " rho = " << rho[node] << std::endl;
+                exit(1);
+            }
         }
         for (size_t i=0; i<velocities.size() ; i++)
         {
             double feq = equilibrium( rho[node], u[node], velocities[i]);
             new_f_temp[node][i] = f[node][i] + (feq - f[node][i]) / tau;
-        }
 
-        // Streaming part
-        for (size_t x = 0; x<nx ; x++){
-            for (size_t y=0; y<ny; y++){
-                for (size_t z=0; z< (dim==3 ? nz : 1); z++){
-                    size_t node = x+nx*(y+ny*(z));
-
-                     // Streaming for each direction
-                    for (size_t i = 0; i < velocities.size(); ++i) {
-                        int dx = velocities[i][0];
-                        int dy = velocities[i][1];
-                        int dz = (dim == 3) ? velocities[i][2] : 0;
-
-                        // source node
-                        size_t source_x = (x + nx - dx) % nx;
-                        size_t source_y = (y + ny - dy) % ny;
-                        size_t source_z = (dim == 3) ? (z + nz - dz) % nz : 0;
-
-                        size_t source_node = source_x + nx * (source_y + ny * source_z);
-
-                        // copy distribution after collision
-                        f[node][i] = new_f_temp[source_node][i];
-                    }
-                }
+            if (std::isnan(new_f_temp[node][i])) {
+                std::cerr << "NaN detected in new_f_temp[" << node << "][" << i << "]! "
+                    << "rho[" << node << "] = " << rho[node] << ", "
+                    << "u[" << node << "] = (" << u[node][0] << ", " << u[node][1];
+                if constexpr (dim == 3) std::cerr << ", " << u[node][2]; // Only if 3D
+                std::cerr << "), velocities[" << i << "] = (" << velocities[i][0] << ", " << velocities[i][1];
+                if constexpr (dim == 3) std::cerr << ", " << velocities[i][2]; // Only if 3D
+                std::cerr << ")" << std::endl;
+                exit(1);
             }
         }
 
+        
+
+    }
+
+    // Streaming part
+    for (size_t x = 0; x<nx ; x++){
+        for (size_t y=0; y<ny; y++){
+            for (size_t z=0; z< (dim==3 ? nz : 1); z++){
+                size_t node = x+nx*(y+ny*(z));
+
+                    // Streaming for each direction
+                for (size_t i = 0; i < velocities.size(); ++i) {
+                    int dx = velocities[i][0];
+                    int dy = velocities[i][1];
+                    int dz = (dim == 3) ? velocities[i][2] : 0;
+
+                    // source node
+                    size_t source_x = (x + nx - dx) % nx;
+                    size_t source_y = (y + ny - dy) % ny;
+                    size_t source_z = (dim == 3) ? (z + nz - dz) % nz : 0;
+
+                    size_t source_node = source_x + nx * (source_y + ny * source_z);
+
+                    // copy distribution after collision
+                    f[node][i] = new_f_temp[source_node][i];
+                }
+            }
+        }
     }
 }
 

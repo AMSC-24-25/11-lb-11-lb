@@ -1,28 +1,27 @@
 # Variabili
-CXX = g++                       # Compilatore
-CXXFLAGS = -std=c++17 -O2 -Wall # Flag di compilazione
-SRC_DIR = .                      # Directory dei sorgenti (cartella corrente)
-TARGET = lbm_sim                 # Nome dell'eseguibile finale
+CXX = g++
+CXXFLAGS = -std=c++17 -O2 -Wall
+SRC_DIR = .
+TARGET = lbm_sim
 
-# Trova i file sorgente .cpp
-SRC_FILES = $(wildcard $(SRC_DIR)/*.cpp)  # Trova tutti i file .cpp nella directory
-OBJ_FILES = $(SRC_FILES:.cpp=.o)          # Crea i file .o corrispondenti ai file .cpp
+# Trova tutti i file sorgente .cpp e genera i corrispondenti file oggetto .o
+SRC_FILES = $(wildcard $(SRC_DIR)/*.cpp)
+OBJ_FILES = $(SRC_FILES:.cpp=.o)
 
 # Regola principale
 all: $(TARGET)
 
-# Regola per compilare i file oggetto
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@  # Compila il file .cpp in un file .o
-
 # Regola per creare l'eseguibile
 $(TARGET): $(OBJ_FILES)
-	$(CXX) $(CXXFLAGS) $(OBJ_FILES) -o $(TARGET)  # Linka i file .o per creare l'eseguibile
+	$(CXX) $(CXXFLAGS) $(OBJ_FILES) -o $@
 
-# Regola per pulire
+# Regola per compilare ogni file oggetto
+$(SRC_DIR)/%.o: $(SRC_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Regola per pulire i file generati
 clean:
-	rm -f $(OBJ_FILES) $(TARGET)  # Elimina i file oggetto e l'eseguibile
+	rm -f $(OBJ_FILES) $(TARGET)
 
-# Targets fittizi
+# Target fittizi
 .PHONY: all clean
-
