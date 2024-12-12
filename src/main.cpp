@@ -5,27 +5,34 @@
 #include <array>
 #include <iomanip> 
 
-const size_t nx=30, ny=30;
 const double Re = 100;
-const double L = 1.0;
+const double L = 1.0; //SCALE
+const unsigned int nx=30*L, ny=nx;
 const int q = 9;
+
 
 const double u_lid = 0.05;
 const double rho_0 = 1.0;
 
-const double nu = 0.1;
-const double omega = 0.8;//1.0 / (3.0 * nu + 0.5); // 1/tau
+const double nu = 1.0/6.0;
+
+const double tau = (3.0 * nu + 0.5);
+const double omega = 1/tau;
 
 const double cs2 = 1.0/3.0;
 
-// velocity directions D2Q9
+//LATTICE WEIGHTS
+const double w0=4.0/9.0;
+const double ws=1.0/9.0;
+const double wd= 1.0/36.0;
+
+//direction component
+const double w[q] ={w0,ws,ws,ws,ws,wd,wd,wd,wd};
+
 const int ex[q] = {0, 1, 0, -1, 0, 1, -1, -1, 1};
 const int ey[q] = {0, 0, 1, 0, -1, 1, 1, -1, -1};
 
-// weights D2Q9
-const double w[q] = {4.0/9, 1.0/9, 1.0/9, 1.0/9, 1.0/9, 
-                     1.0/36, 1.0/36, 1.0/36, 1.0/36};
-
+/
 double equilibrium(int i, double rho, double ux, double uy) {
     double eu = ex[i] * ux + ey[i] * uy;
     double u2 = ux * ux + uy * uy;
@@ -112,29 +119,28 @@ void collide(std::vector<std::vector<std::vector<double>>>& f,
              std::vector<std::vector<double>>& rho, 
              std::vector<std::vector<double>>& ux, 
              std::vector<std::vector<double>>& uy) {
-    for (int x = 0; x < nx; ++x) {
-        for (int y = 0; y < ny; ++y) {
+    for (int y = 0; y < ny; ++y) {
+        for (int x = 0; x < nx; ++x) {
             for (int i = 0; i < q; ++i) {
                 double feq = equilibrium(i, rho[x][y], ux[x][y], uy[x][y]);
-                f[x][y][i] += -omega * (f[x][y][i] - feq);
+                f[x][y][i] = (1-omega) * f[x][y][i] + omega*feq ;
             }
         }
     }
 }
 
 void stream(std::vector<std::vector<std::vector<double>>>& f) {
-    std::vector<std::vector<std::vector<double>>> f_new = f;
+    std::vector<std::vector<std::vector<double>>> f_new;
 
-    for (int x = 0; x < nx; ++x) {
-        for (int y = 0; y < ny; ++y) {
+    for (int y= 0; y < ny; ++y) {
+        for (int x = 0; x < nx; ++x) {
             for (int i = 0; i < q; ++i) {
-                int bx = (x + ex[i] + nx) % nx;
-                int by = (y + ey[i] + ny) % ny;
-                f_new[bx][by][i] = f[x][y][i];
+                int bx = (nx+x-ex[i]) % nx;
+                int by = (ny+y-ey[i]) % ny;
+                f_new[x][y][i] = f[bx][by][i];
             }
         }
     }
-    f = f_new;
 }
 
 void computeRhoAndVelocity(const std::vector<std::vector<std::vector<double>>>& f,
