@@ -10,6 +10,8 @@ const double L = 1.0; //SCALE
 const unsigned int nx=30*L, ny=nx;
 const int q = 9;
 
+const size_t m_size_ndir = sizeof(double) * nx*ny*q;
+const size_t m_size_scalar = sizeof(double) * nx * ny ;
 
 const double u_lid = 0.05;
 const double rho_0 = 1.0;
@@ -32,12 +34,30 @@ const double w[q] ={w0,ws,ws,ws,ws,wd,wd,wd,wd};
 const int ex[q] = {0, 1, 0, -1, 0, 1, -1, -1, 1};
 const int ey[q] = {0, 0, 1, 0, -1, 1, 1, -1, -1};
 
-/
-double equilibrium(int i, double rho, double ux, double uy) {
-    double eu = ex[i] * ux + ey[i] * uy;
-    double u2 = ux * ux + uy * uy;
-    return w[i] * rho * (1 + 3 * eu + 4.5 * eu * eu - 1.5 * u2);
+inline size_t scalar_index(unsigned int x, unsigned int y){
+    return nx*y+x;
 }
+
+inline size_t field_index(unsigned int x, unsigned int y,unsigned int d){
+    return nx*(ny*d+y)+x;
+}
+
+void init_equilibrium(double *f, double *r, double *u, double *v){
+    for(unsigned int y=0;y<ny;++y){
+        for(unsigned int x=0;x<nx;++x){
+            double rho=r[scalar_index(x,y)];
+            double ux = u[scalar_index(x,y)];
+            double uy = v[scalar_index(x,y)];
+
+            for(unsigned int i = 0; i<q;++i){
+                double cdotu=ex[i]*ux + ey[i]*uy;
+                f[field_index(x,y,i)]= w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(ux*ux*uy*uy));
+            }
+        }
+
+    }
+}
+
 
 void applyNoSlip(std::vector<std::vector<std::vector<double>>>& f, int nx, int ny) {
     // y = 0
@@ -83,95 +103,65 @@ void applyLidVelocity(std::vector<std::vector<std::vector<double>>>& f,
     }
 }
 
-void save_results(const std::vector<std::vector<double>>& rho,
-                  const std::vector<std::vector<double>>& ux,
-                  const std::vector<std::vector<double>>& uy,
-                  const std::string& filename) {
-    std::ofstream file(filename);
-    file << "y,x,rho,ux,uy\n";
-    for (int y = 0; y < ny; ++y) {
-        for (int x = 0; x < nx; ++x) {
-            file << x << "," << y << "," << rho[x][y] << "," << ux[x][y] << "," << uy[x][y] << "\n";
-        }
-    }
-    file.close();
-}
 
-std::vector<std::vector<std::vector<double>>> initialize() {
-    std::vector<std::vector<std::vector<double>>> f(nx, 
-        std::vector<std::vector<double>>(ny, 
-        std::vector<double>(q, 0.0)));
 
-    for (int x = 0; x < nx; ++x) {
-        for (int y = 0; y < ny; ++y) {
-            double rho = 1.0;
-            double ux = 0.0;
-            double uy = 0.0;
-            for (int i = 0; i < q; ++i) {
-                f[x][y][i] = equilibrium(i, rho, ux, uy);
-            }
-        }
-    }
-    return f;
-}
+void collide(double *f, double *r , double *u , double *v) {
+    for (unsigned int y = 0; y < ny; ++y) {
+        for (unsigned int x = 0; x < nx; ++x) {
+            double rho = r[scalar_index(x,y)];
+            double ux = u[scalar_index(x,y)];
+            double uy = v[scalar_index(x,y)];
 
-void collide(std::vector<std::vector<std::vector<double>>>& f, 
-             std::vector<std::vector<double>>& rho, 
-             std::vector<std::vector<double>>& ux, 
-             std::vector<std::vector<double>>& uy) {
-    for (int y = 0; y < ny; ++y) {
-        for (int x = 0; x < nx; ++x) {
-            for (int i = 0; i < q; ++i) {
-                double feq = equilibrium(i, rho[x][y], ux[x][y], uy[x][y]);
-                f[x][y][i] = (1-omega) * f[x][y][i] + omega*feq ;
+            for (unsigned int i = 0; i < q; ++i) {
+                double cdotu=ex[i]*ux + ey[i]*uy;
+                double feq = w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(ux*ux*uy*uy));
+                f[field_index(x,y,i)] = (1-omega) * f[field_index(x,y,i)] + omega * feq ;
             }
         }
     }
 }
 
-void stream(std::vector<std::vector<std::vector<double>>>& f) {
-    std::vector<std::vector<std::vector<double>>> f_new;
-
+void stream(double *f_src , double *f_dst) {
+   
     for (int y= 0; y < ny; ++y) {
         for (int x = 0; x < nx; ++x) {
             for (int i = 0; i < q; ++i) {
-                int bx = (nx+x-ex[i]) % nx;
-                int by = (ny+y-ey[i]) % ny;
-                f_new[x][y][i] = f[bx][by][i];
+                int xmd = (nx+x-ex[i]) % nx;
+                int ymd = (ny+y-ey[i]) % ny;
+                f_dst[field_index(x,y,i)]= f_src[field_index(xmd,ymd,i)];
             }
         }
     }
 }
 
-void computeRhoAndVelocity(const std::vector<std::vector<std::vector<double>>>& f,
-                           std::vector<std::vector<double>>& rho,
-                           std::vector<std::vector<double>>& ux,
-                           std::vector<std::vector<double>>& uy) {
-    for (int x = 0; x < nx; ++x) {
-        for (int y = 0; y < ny; ++y) {
-            rho[x][y] = 0.0;
-            ux[x][y] = 0.0;
-            uy[x][y] = 0.0;
+void compute_rho_u(double *f, double *r , double *u , double *v) {
+    for (int y= 0; y < ny; ++y) {
+        for (int x = 0; x < nx; ++x) {
+            double rho = 0.0;
+            double ux = 0.0;
+            double uy = 0.0;
             for (int i = 0; i < q; ++i) {
-                rho[x][y] += f[x][y][i];
-                ux[x][y] += f[x][y][i] * ex[i];
-                uy[x][y] += f[x][y][i] * ey[i];
+                rho+=f[field_index(x,y,i)];
+                ux+= f[field_index(x,y,i)]*ex[i];
+                uy+= f[field_index(x,y,i)]*ey[i];
             }
-            ux[x][y] /= rho[x][y];
-            uy[x][y] /= rho[x][y];
-        }
+            r[scalar_index(x,y)] = rho ;
+            u[scalar_index(x,y)] = ux/rho;
+            v[scalar_index(x,y)] = uy/rho;
+
+         }
     }
 }
 
 #include <ctime>
 
 int main() {
-    auto f = initialize();
     
-
-    std::vector<std::vector<double>> rho(nx, std::vector<double>(ny, 1.0));
-    std::vector<std::vector<double>> ux(nx, std::vector<double>(ny, 0.0));
-    std::vector<std::vector<double>> uy(nx, std::vector<double>(ny, 0.0));
+    double *f1 =(double*) malloc(m_size_ndir);
+    double *f2 = (double*) malloc(m_size_ndir);
+    double *rho = (double*) malloc(m_size_scalar);
+    double *ux = (double*) malloc(m_size_scalar);
+    double *uy = (double*) malloc(m_size_scalar);
 
     const int maxSteps = 1000;
 
@@ -183,27 +173,34 @@ int main() {
 
     file << nx << "\n" << ny << "\n";
 
+    init_equilibrium(f1,rho,ux,uy);
+
     for (int t = 0; t < maxSteps; ++t) {
-        stream(f);
+        stream(f1,f2);
 
         applyNoSlip(f, nx, ny);
         applyLidVelocity(f, rho, u_lid, nx, ny);
-        computeRhoAndVelocity(f, rho, ux, uy);
 
-        collide(f, rho, ux, uy);
+
+        compute_rho_u(f2,rho,ux,uy);
+        collide(f2, rho, ux, uy);
+
+        double *temp = f1;
+          f1=f2;
+          f2=temp;
 
         
         if(t%10 == 0) {
             for (int i = 0; i < ny; ++i) {
                 for (int j = 0; j < nx; ++j) {
-                    double vx = ux[j][i]; 
-                    double vy = uy[j][i];
+                    double vx = ux[scalar_index(j,i)]; 
+                    double vy = uy[scalar_index(j,i)];
                     double v = sqrt(vx*vx + vy*vy); 
                     file << v << "\n";
                 }
             }
         }
-
+          
         if(t%50 == 0 || t == maxSteps-1) {
             float progress = (static_cast<float>(t+1) / maxSteps) * 100.0f;
             std::cout << "\rProgress: " << std::fixed << std::setprecision(2)
@@ -215,7 +212,12 @@ int main() {
 
     std::cout << "\n";
 
-    save_results(rho, ux, uy, "output.csv");
+    free(f1);
+    free(f2);
+    free(rho);
+    free(ux);
+    free(uy);
+
 
     return 0;
 }
