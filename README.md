@@ -1,2 +1,0 @@
-# LBM
-Lattice Boltzmann Handson
