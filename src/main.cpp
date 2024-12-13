@@ -5,6 +5,8 @@
 #include <array>
 #include <iomanip> 
 
+#include <matplot/matplot.h>
+
 const double Re = 100;
 const double L = 1.0; //SCALE
 const unsigned int nx=30*L, ny=nx;
