@@ -4,12 +4,13 @@
 #include <fstream>
 #include <array>
 #include <iomanip> 
+#include <thread>
 
 #include <matplot/matplot.h>
 
 const double Re = 100;
 const double L = 1.0; //SCALE
-const unsigned int nx=30*L, ny=nx;
+const unsigned int nx=100*L, ny=nx;
 const int q = 9;
 
 const size_t m_size_ndir = sizeof(double) * nx*ny*q;
@@ -156,6 +157,18 @@ int main() {
 
     init_equilibrium(f1,rho,ux,uy);
 
+    
+    using namespace matplot;
+    auto f = figure(true);
+
+    
+    std::vector<std::vector<double>> velocities(ny, std::vector<double>(nx, 0.0));
+    //auto heatmap = imshow(velocities);
+    image(velocities, true);
+    colorbar();
+
+    //show();
+
     for (int t = 0; t < maxSteps; ++t) {
 
         boundary_conditions(f1,ux,uy, rho);
@@ -167,15 +180,24 @@ int main() {
         f1=f2;
         f2=temp;
 
-        if(t%10 == 0) {
+        if(t%20 == 0) {
+            
             for (int i = 0; i < nx; ++i) {
                 for (int j = 0; j < ny; ++j) {
                     double vx = ux[scalar_index(i,j)]; 
                     double vy = uy[scalar_index(i,j)];
                     double v = sqrt(vx*vx + vy*vy); 
-                    file << v << "\n";
+                    //file << v << "\n";
+                    velocities[j][i] = v;
                 }
             }
+            // Ricrea la heatmap
+            image(velocities, true);
+            colorbar();
+            f->draw();
+
+            // Introduci un ritardo
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
           
         if(t%50 == 0 || t == maxSteps-1) {
