@@ -42,19 +42,19 @@ inline size_t scalar_index(unsigned int x, unsigned int y){
 }
 
 inline size_t field_index(unsigned int x, unsigned int y,unsigned int d){
-    return nx*(ny*d+y)+x;
+    return (nx*y+x)*q + d;
 }
 
 void init_equilibrium(double *f, double *r, double *u, double *v){
     for(unsigned int y=0;y<ny;++y){
         for(unsigned int x=0;x<nx;++x){
-            double rho=r[scalar_index(x,y)];
-            double ux = u[scalar_index(x,y)];
-            double uy = v[scalar_index(x,y)];
+            double rho= rho_0;//r[scalar_index(x,y)];
+            double ux = 0;// u[scalar_index(x,y)];
+            double uy = 0;//v[scalar_index(x,y)];
 
             for(unsigned int i = 0; i<q;++i){
                 double cdotu=ex[i]*ux + ey[i]*uy;
-                f[field_index(x,y,i)]= w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(ux*ux*uy*uy));
+                f[field_index(x,y,i)]= w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(ux*ux + uy*uy));
             }
         }
 
@@ -62,7 +62,7 @@ void init_equilibrium(double *f, double *r, double *u, double *v){
 }
 
 void collide(double *f, double *r , double *u , double *v) {
-    const double tauinv = 2.0/(6.0*nu+1.0);
+    const double tauinv = 1/tau;//2.0/(6.0*nu+1.0);
     const double omtauinv = 1.0-tauinv;
     for (unsigned int y = 0; y < ny; ++y) {
         for (unsigned int x = 0; x < nx; ++x) {
@@ -72,7 +72,7 @@ void collide(double *f, double *r , double *u , double *v) {
 
             for (unsigned int i = 0; i < q; ++i) {
                 double cdotu=ex[i]*ux + ey[i]*uy;
-                double feq = w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(ux*ux*uy*uy));
+                double feq = w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(ux*ux + uy*uy));
                 f[field_index(x,y,i)] = (1-omega) * f[field_index(x,y,i)] + omega * feq ;
             }
         }
@@ -94,7 +94,7 @@ void stream(double *f_src , double *f_dst) {
 void compute_rho_u(double *f, double *r , double *u , double *v) {
     for (int y= 0; y < ny; ++y) {
         for (int x = 0; x < nx; ++x) {
-            double rho = 0.1;
+            double rho = 0.0;
             double ux = 0.0;
             double uy = 0.0;
             for (int i = 0; i < q; ++i) {
@@ -111,7 +111,7 @@ void compute_rho_u(double *f, double *r , double *u , double *v) {
 
 void boundary_conditions(double *f, double *ux, double*uy, double*r)
 {
-    const double tauinv = 2.0/(6.0*nu+1.0);
+    const double tauinv = 1/tau;//2.0/(6.0*nu+1.0);
     const double omtauinv = 1.0-tauinv;
     for (unsigned int x=0; x<nx;x++)
     {
@@ -127,15 +127,13 @@ void boundary_conditions(double *f, double *ux, double*uy, double*r)
 
             for (unsigned int i = 0; i < q; ++i) {
                 double cdotu=ex[i]*u + ey[i]*v;
-                double feq = w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(u*u*v*v));
+                double feq = w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(u*u + v*v));
                 f[field_index(x,y,i)] = (1-omega) * f[field_index(x,y,i)] + omega * feq ;
             }
         } 
     }
 }
 
-
-#include <ctime>
 
 int main() {
     
@@ -145,7 +143,12 @@ int main() {
     double *ux = (double*) malloc(m_size_scalar);
     double *uy = (double*) malloc(m_size_scalar);
 
-    const int maxSteps = 1000;
+    const int maxSteps = 10000;
+
+    for(int i = 0; i < nx*ny; ++i){
+        rho[i] = rho_0;
+    }
+
 
     std::ofstream file("vel_data.txt");
     if (!file.is_open()) {
@@ -180,7 +183,7 @@ int main() {
         f1=f2;
         f2=temp;
 
-        if(t%20 == 0) {
+        if(t%50 == 0) {
             
             for (int i = 0; i < nx; ++i) {
                 for (int j = 0; j < ny; ++j) {
@@ -197,7 +200,7 @@ int main() {
             f->draw();
 
             // Introduci un ritardo
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(300));
         }
           
         if(t%50 == 0 || t == maxSteps-1) {
