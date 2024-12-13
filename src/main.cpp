@@ -13,7 +13,7 @@ const int q = 9;
 const size_t m_size_ndir = sizeof(double) * nx*ny*q;
 const size_t m_size_scalar = sizeof(double) * nx * ny ;
 
-const double u_lid = 0.05;
+const double u_lid = 0.5;
 const double rho_0 = 1.0;
 
 const double nu = 1.0/6.0;
@@ -58,54 +58,9 @@ void init_equilibrium(double *f, double *r, double *u, double *v){
     }
 }
 
-
-void applyNoSlip(std::vector<std::vector<std::vector<double>>>& f, int nx, int ny) {
-    // y = 0
-    for (int x = 0; x < nx; ++x) {
-        f[x][0][2] = f[x][0][4];
-        f[x][0][5] = f[x][0][7];
-        f[x][0][6] = f[x][0][8];
-    }
-    
-    // y = ny-1
-    for (int x = 0; x < nx; ++x) {
-        f[x][ny-1][4] = f[x][ny-1][2];
-        f[x][ny-1][7] = f[x][ny-1][5];
-        f[x][ny-1][8] = f[x][ny-1][6];
-    }
-
-    for (int y = 0; y < ny; ++y) {
-        // x = 0
-        f[0][y][1] = f[0][y][3];
-        f[0][y][5] = f[0][y][7];
-        f[0][y][8] = f[0][y][6];
-
-        // x = nx-1
-        f[nx-1][y][3] = f[nx-1][y][1];
-        f[nx-1][y][7] = f[nx-1][y][5];
-        f[nx-1][y][6] = f[nx-1][y][8];
-    }
-}
-
-void applyLidVelocity(std::vector<std::vector<std::vector<double>>>& f,
-                      std::vector<std::vector<double>>& rho,
-                      double u_lid, int nx, int ny) {
-    for (int x = 0; x < nx; ++x) {
-        double ux = u_lid;
-        double uy = 0; 
-
-        double rho_wall = f[x][ny-1][0] + f[x][ny-1][2] + f[x][ny-1][4] +
-                          2 * (f[x][ny-1][1] + f[x][ny-1][5] + f[x][ny-1][8]);
-
-        f[x][ny-1][3] = f[x][ny-1][1] - (2.0 / 3.0) * rho_wall * ux;
-        f[x][ny-1][6] = f[x][ny-1][8] - (1.0 / 6.0) * rho_wall * ux;
-        f[x][ny-1][7] = f[x][ny-1][5] - (1.0 / 6.0) * rho_wall * ux;
-    }
-}
-
-
-
 void collide(double *f, double *r , double *u , double *v) {
+    const double tauinv = 2.0/(6.0*nu+1.0);
+    const double omtauinv = 1.0-tauinv;
     for (unsigned int y = 0; y < ny; ++y) {
         for (unsigned int x = 0; x < nx; ++x) {
             double rho = r[scalar_index(x,y)];
@@ -122,7 +77,6 @@ void collide(double *f, double *r , double *u , double *v) {
 }
 
 void stream(double *f_src , double *f_dst) {
-   
     for (int y= 0; y < ny; ++y) {
         for (int x = 0; x < nx; ++x) {
             for (int i = 0; i < q; ++i) {
@@ -137,7 +91,7 @@ void stream(double *f_src , double *f_dst) {
 void compute_rho_u(double *f, double *r , double *u , double *v) {
     for (int y= 0; y < ny; ++y) {
         for (int x = 0; x < nx; ++x) {
-            double rho = 0.0;
+            double rho = 0.1;
             double ux = 0.0;
             double uy = 0.0;
             for (int i = 0; i < q; ++i) {
@@ -148,10 +102,35 @@ void compute_rho_u(double *f, double *r , double *u , double *v) {
             r[scalar_index(x,y)] = rho ;
             u[scalar_index(x,y)] = ux/rho;
             v[scalar_index(x,y)] = uy/rho;
-
-         }
+        }
     }
 }
+
+void boundary_conditions(double *f, double *ux, double*uy, double*r)
+{
+    const double tauinv = 2.0/(6.0*nu+1.0);
+    const double omtauinv = 1.0-tauinv;
+    for (unsigned int x=0; x<nx;x++)
+    {
+        for(unsigned int y=0; y<ny; y++)
+        {
+            ux[scalar_index(x,0)] = u_lid;
+            ux[scalar_index(0,y)] = 0.0;
+            ux[scalar_index(x,ny-1)] = 0.0;
+            ux[scalar_index(nx-1, y)] = 0.0;            
+            double rho = r[scalar_index(x,y)];
+            double u = ux[scalar_index(x,y)];
+            double v = uy[scalar_index(x,y)];
+
+            for (unsigned int i = 0; i < q; ++i) {
+                double cdotu=ex[i]*u + ey[i]*v;
+                double feq = w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(u*u*v*v));
+                f[field_index(x,y,i)] = (1-omega) * f[field_index(x,y,i)] + omega * feq ;
+            }
+        } 
+    }
+}
+
 
 #include <ctime>
 
@@ -176,25 +155,21 @@ int main() {
     init_equilibrium(f1,rho,ux,uy);
 
     for (int t = 0; t < maxSteps; ++t) {
+
+        boundary_conditions(f1,ux,uy, rho);
         stream(f1,f2);
-
-        applyNoSlip(f, nx, ny);
-        applyLidVelocity(f, rho, u_lid, nx, ny);
-
-
         compute_rho_u(f2,rho,ux,uy);
         collide(f2, rho, ux, uy);
 
         double *temp = f1;
-          f1=f2;
-          f2=temp;
+        f1=f2;
+        f2=temp;
 
-        
         if(t%10 == 0) {
-            for (int i = 0; i < ny; ++i) {
-                for (int j = 0; j < nx; ++j) {
-                    double vx = ux[scalar_index(j,i)]; 
-                    double vy = uy[scalar_index(j,i)];
+            for (int i = 0; i < nx; ++i) {
+                for (int j = 0; j < ny; ++j) {
+                    double vx = ux[scalar_index(i,j)]; 
+                    double vy = uy[scalar_index(i,j)];
                     double v = sqrt(vx*vx + vy*vy); 
                     file << v << "\n";
                 }
@@ -209,7 +184,6 @@ int main() {
     }
 
     file.close();
-
     std::cout << "\n";
 
     free(f1);
@@ -217,7 +191,6 @@ int main() {
     free(rho);
     free(ux);
     free(uy);
-
 
     return 0;
 }
