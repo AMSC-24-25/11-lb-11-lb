@@ -6,251 +6,233 @@
 #include <iomanip> 
 #include <thread>
 
-#include <matplot/matplot.h>
 
-const double Re = 100;
-const double L = 1.0; //SCALE
-const unsigned int nx=100*L, ny=nx;
-const int q = 9;
+const int maxSteps = 20000; // Maximum number of time steps
 
-const size_t m_size_ndir = sizeof(double) * nx*ny*q;
-const size_t m_size_scalar = sizeof(double) * nx * ny ;
+const int ITERATIONS_PER_FRAME = 25;
+const int ITERATIONS_PER_PROGRESS_UPDATE = 100;
 
-const double u_lid = 0.5;
-const double rho_0 = 1.0;
+// D2Q9
+const int D = 2;
+const int Q = 9;      
 
-const double nu = 1.0/6.0;
+const int NX = 100; // Dimension in the x-direction
+const int NY = 100; // Dimension in the y-direction
+const double U = 0.50; // Velocity imposed on the upper boundary
 
-const double tau = (3.0 * nu + 0.5);
-const double omega = 1/tau;
+// Velocity configuration for the D2Q9 model
+int e[Q * D] = {0, 0, 1, 0, 0, 1,-1, 0,0, -1,1, 1,-1, 1,-1, -1,1, -1};
 
-const double cs2 = 1.0/3.0;
+// Equilibrium function weights for each direction
+double w[Q] = {
+    4.0 / 9, 1.0 / 9, 1.0 / 9, 1.0 / 9, 1.0 / 9, 1.0 / 36, 1.0 / 36, 1.0 / 36, 1.0 / 36};
 
-//LATTICE WEIGHTS
-const double w0=4.0/9.0;
-const double ws=1.0/9.0;
-const double wd= 1.0/36.0;
+// Main domain variables
+double rho[(NX+1)*(NY+1)], u[(NX+1)*(NY+1)*D],
+    f[(NX+1)*(NY + 1)*Q], F[(NX+1)*(NY + 1)*Q];
 
-//direction component
-const double w[q] ={w0,ws,ws,ws,ws,wd,wd,wd,wd};
+// Global variables for iterations and model parameters
+int i, j, k, ip, jp, n, P, Z;
+double c, Re, dx, dy, Lx, Ly, dt, rho0, P0, tau_f, niu, error;
 
-const int ex[q] = {0, 1, 0, -1, 0, 1, -1, -1, 1};
-const int ey[q] = {0, 0, 1, 0, -1, 1, 1, -1, -1};
 
-inline size_t scalar_index(unsigned int x, unsigned int y){
-    return nx*y+x;
+inline int& direction(unsigned int d, unsigned int v){
+    return e[d*D + v];
 }
 
-inline size_t field_index(unsigned int x, unsigned int y,unsigned int d){
-    return (nx*y+x)*q + d;
+inline double& density(unsigned int x, unsigned int y){
+    return rho[(NX+1)*y+x];
 }
 
-void init_equilibrium(double *f, double *r, double *u, double *v){
-    for(unsigned int y=0;y<ny;++y){
-        for(unsigned int x=0;x<nx;++x){
-            double rho= rho_0;//r[scalar_index(x,y)];
-            double ux = 0;// u[scalar_index(x,y)];
-            double uy = 0;//v[scalar_index(x,y)];
-
-            for(unsigned int i = 0; i<q;++i){
-                double cdotu=ex[i]*ux + ey[i]*uy;
-                f[field_index(x,y,i)]= w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(ux*ux + uy*uy));
-            }
-        }
-
-    }
+inline double& velocity(unsigned int x, unsigned int y, unsigned int d){
+    return u[((NX+1)*y+x)*D + d];
 }
 
-void collide(double *f, double *r , double *u , double *v) {
-    const double tauinv = 1/tau;//2.0/(6.0*nu+1.0);
-    const double omtauinv = 1.0-tauinv;
-    for (unsigned int y = 0; y < ny; ++y) {
-        for (unsigned int x = 0; x < nx; ++x) {
-            double rho = r[scalar_index(x,y)];
-            double ux = u[scalar_index(x,y)];
-            double uy = v[scalar_index(x,y)];
-
-            for (unsigned int i = 0; i < q; ++i) {
-                double cdotu=ex[i]*ux + ey[i]*uy;
-                double feq = w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(ux*ux + uy*uy));
-                f[field_index(x,y,i)] = (1-omega) * f[field_index(x,y,i)] + omega * feq ;
-            }
-        }
-    }
+inline double& field(unsigned int x, unsigned int y,unsigned int d){
+    return f[((NX+1)*y+x)*Q + d];
 }
 
-void stream(double *f_src , double *f_dst) {
-    for (int y= 0; y < ny; ++y) {
-        for (int x = 0; x < nx; ++x) {
-            for (int i = 0; i < q; ++i) {
-                int xmd = (nx+x-ex[i]) % nx;
-                int ymd = (ny+y-ey[i]) % ny;
-                f_dst[field_index(x,y,i)]= f_src[field_index(xmd,ymd,i)];
-            }
-        }
-    }
+inline double& field_2(unsigned int x, unsigned int y,unsigned int d){
+    return F[((NX+1)*y+x)*Q + d];
 }
 
-void compute_rho_u(double *f, double *r , double *u , double *v) {
-    for (int y= 0; y < ny; ++y) {
-        for (int x = 0; x < nx; ++x) {
-            double rho = 0.0;
-            double ux = 0.0;
-            double uy = 0.0;
-            for (int i = 0; i < q; ++i) {
-                rho+=f[field_index(x,y,i)];
-                ux+= f[field_index(x,y,i)]*ex[i];
-                uy+= f[field_index(x,y,i)]*ey[i];
-            }
-            r[scalar_index(x,y)] = rho ;
-            u[scalar_index(x,y)] = ux/rho;
-            v[scalar_index(x,y)] = uy/rho;
-        }
-    }
-}
+void init();
+double feq(unsigned int k, unsigned int x, unsigned int y);
 
-void boundary_conditions(double *f, double *ux, double*uy, double*r)
-{
-    const double tauinv = 1/tau;//2.0/(6.0*nu+1.0);
-    const double omtauinv = 1.0-tauinv;
-    for (unsigned int x=0; x<nx;x++)
-    {
-        for(unsigned int y=0; y<ny; y++)
-        {
-            ux[scalar_index(x,0)] = u_lid;
-            ux[scalar_index(0,y)] = 0.0;
-            ux[scalar_index(x,ny-1)] = 0.0;
-            ux[scalar_index(nx-1, y)] = 0.0;            
-            double rho = r[scalar_index(x,y)];
-            double u = ux[scalar_index(x,y)];
-            double v = uy[scalar_index(x,y)];
-
-            for (unsigned int i = 0; i < q; ++i) {
-                double cdotu=ex[i]*u + ey[i]*v;
-                double feq = w[i]*rho*(1.0 + 3.0*cdotu + 4.5*cdotu*cdotu - 1.5*(u*u + v*v));
-                f[field_index(x,y,i)] = (1-omega) * f[field_index(x,y,i)] + omega * feq ;
-            }
-        } 
-    }
-}
-
+void evolution();
+void compute_collision();  
+void compute_macro_quantities();
+void apply_boundary_conditions();
 
 int main() {
-    
-    double *f1 =(double*) malloc(m_size_ndir);
-    double *f2 = (double*) malloc(m_size_ndir);
-    double *rho = (double*) malloc(m_size_scalar);
-    double *ux = (double*) malloc(m_size_scalar);
-    double *uy = (double*) malloc(m_size_scalar);
-
-    const int maxSteps = 10000;
-
-    for(int i = 0; i < nx*ny; ++i){
-        rho[i] = rho_0;
-    }
-
-
+    // Create the output file for velocity
     std::ofstream file("vel_data.txt");
     if (!file.is_open()) {
-        std::cerr << "vel_data.txt creation failed.\n";
+        std::cerr << "Creazione di vel_data.txt fallita.\n";
         return 1;
     }
+    file << NX << "\n" << NY << "\n";
 
-    file << nx << "\n" << ny << "\n";
+    init(); // initialization
 
-    init_equilibrium(f1,rho,ux,uy);
+    auto startTime = std::chrono::high_resolution_clock::now();
 
-    
-    using namespace matplot;
-    auto f = figure(true);
+    for (n = 1; n <= maxSteps; n++) {
+        evolution(); // System evolution
 
-    
-    std::vector<std::vector<double>> velocities(ny, std::vector<double>(nx, 0.0));
-    //auto heatmap = imshow(velocities);
-    image(velocities, true);
-    colorbar();
-
-    //show();
-
-    for (int t = 0; t < maxSteps; ++t) {
-
-        boundary_conditions(f1,ux,uy, rho);
-        stream(f1,f2);
-        compute_rho_u(f2,rho,ux,uy);
-        collide(f2, rho, ux, uy);
-
-        double *temp = f1;
-        f1=f2;
-        f2=temp;
-
-        if(t%50 == 0) {
-            
-            for (int i = 0; i < nx; ++i) {
-                for (int j = 0; j < ny; ++j) {
-                    double vx = ux[scalar_index(i,j)]; 
-                    double vy = uy[scalar_index(i,j)];
+        //Every ITERATIONS_PER_FRAME steps, save velocity data
+        if (n % ITERATIONS_PER_FRAME == 0) {
+            for (int i = 0; i <= NX; ++i) {
+                for (int j = 0; j <= NY; ++j) {
+                    double vx = velocity(i,j,0); 
+                    double vy = velocity(i,j,1);
                     double v = sqrt(vx*vx + vy*vy); 
-                    //file << v << "\n";
-                    velocities[j][i] = v;
+                    file << v << "\n";
                 }
             }
-            // Ricrea la heatmap
-            image(velocities, true);
-            colorbar();
-            f->draw();
-
-            // Introduci un ritardo
-            std::this_thread::sleep_for(std::chrono::milliseconds(300));
         }
-          
-        if(t%50 == 0 || t == maxSteps-1) {
-            float progress = (static_cast<float>(t+1) / maxSteps) * 100.0f;
-            std::cout << "\rProgress: " << std::fixed << std::setprecision(2)
-                    << progress << "% completed" << std::flush;   
+
+        // Update the progress bar
+        if (n % ITERATIONS_PER_PROGRESS_UPDATE == 0 || n == maxSteps - 1) {
+            float progress = (static_cast<float>(n) / maxSteps);
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
+            
+            double estimatedTotalTime = elapsedTime / progress;
+            int remainingTime = estimatedTotalTime - elapsedTime;
+
+            progress *= 100;
+            std::cout << "\rProgress: " << std::fixed << std::setprecision(2) << progress << "% completed "
+                      << "| Elapsed Time: " << elapsedTime << "s, "
+                      << "Remaining Time (estimated): " << static_cast<int>(remainingTime) << "s"
+                      << std::flush;
         }
     }
 
     file.close();
-    std::cout << "\n";
 
-    free(f1);
-    free(f2);
-    free(rho);
-    free(ux);
-    free(uy);
+    std::cout << "\n";
 
     return 0;
 }
 
-// #include "LBM.hpp"
-// int main(){
-//     size_t nx=50, ny=50;
-//     double Re = 100;
-//     double L = 1.0;
-//     double u_lid = 1.0;
-//     double nu = u_lid*L/Re;
-//     double tau = 3.0*nu + 0.5;
+void init() {
+    dx = 1.0;         // Spatial step
+    dy = 1.0;         // Spatial step
+    Lx = dx * double(NY); // Domain length in y
+    Ly = dy * double(NX); // Domain length in x
+    dt = dx;          // Time step
+    c = dx / dt;      // Speed of sound (in lattice units)
+    rho0 = 1.0;       // Initial density
+    Re = 10000;        // Reynolds number
+    niu = U * Lx / Re; // Kinematic viscosity
+    tau_f = 3.0 * niu + 0.5; // Relaxation time
 
-//     LBM<2> solver(nx,ny,1, tau);
+    // Initialize variables in the domain
+    for (i = 0; i <= NX; i++) {
+        for (j = 0; j <= NY; j++) {
+            for(k = 0; k < D; k++) {
+                velocity(i,j,k) = 0; // Initial velocity
+            }
 
-//     size_t max_steps = 100;
-//     for (size_t step = 0; step < max_steps; step++)
-//     {
-//         solver.simulate();
+            density(i,j) = rho0; // Initial density
+			velocity(i, NY, 0) = U;  // Velocity imposed on the upper boundary
 
-//         // Boundary conditions
-//         for (size_t x=0; x<nx ; x++)
-//         {
-//             solver.setBoundaryVelocity( x , ny-1, {u_lid, 0.0});
-//         }
+            for (k = 0; k < Q; k++) {
+                field(i,j,k) = feq(k, i, j); // Initial equilibrium function
+            }
+			velocity(i,NY,0) = U; // Velocity imposed on the upper boundary
+        }
+    }
+}
 
-//         // Error and printing check
-//         int percent = (step * 100) / max_steps;
-//         if (percent % 5 == 0) {
-//             std::cout << percent << "% completato.\n";
-//         }
-//         solver.writeVTK("output.vtk");
-//     }
-//     return 0;
-//     //g++ -std=c++17 -O2 -Wall *.cpp -o main
-// }
+// Compute the equilibrium function
+double feq(unsigned int k, unsigned int x, unsigned int y) { 
+    double eu{0.0}, uv{0.0};
+    for(int a = 0; a < D; a++) {
+        eu += direction(k,a) * velocity(x,y,a);  
+        uv += velocity(x,y,a) * velocity(x,y,a);
+    }
+
+    return w[k] * density(x,y) * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
+}
+
+void evolution() {
+    compute_collision();      // Collision
+    compute_macro_quantities(); // Update macroscopic density and velocities
+    apply_boundary_conditions(); // Apply boundary conditions
+}
+
+// Collision
+void compute_collision() {
+    for (i = 1; i < NX; i++) {
+        for (j = 1; j < NY; j++) {
+            for (k = 0; k < Q; k++) {
+                ip = i - direction(k,0); // Node from which the contribution comes
+                jp = j - direction(k,1);
+
+                field_2(i,j,k) = field(ip,jp,k) +(feq(k, ip, jp) - field(ip,jp,k)) / tau_f; // Collision
+            }
+        }
+    }
+}
+
+// Compute macroscopic quantities
+void compute_macro_quantities() {
+    for (i = 0; i < NX; i++) {
+        for (j = 0; j < NY; j++) {
+            density(i,j) = 0;
+
+            for(k = 0; k < D; k++) velocity(i,j,k) = 0;
+            
+            for (k = 0; k < Q; k++) {
+                field(i,j,k) = field_2(i,j,k);
+                density(i,j) += field(i,j,k);
+            
+                velocity(i,j,0) += direction(k,0) * field(i,j,k);
+                velocity(i,j,1) += direction(k,1) * field(i,j,k);
+            }
+
+            for(k = 0; k < D; k++) velocity(i,j,k) /= density(i,j);
+        }
+    }
+}
+
+// Apply boundary conditions
+void apply_boundary_conditions() {
+    for (j = 0; j <= NY; j++) { // Left and right boundaries
+        // Left boundary (x = 0)
+        for(k = 0; k < D; k++) velocity(0,j,k) = 0.0;
+        
+        density(0,j) = density(1,j);
+        for (k = 0; k < Q; k++) {
+            field(0,j,k) = feq(k, 0, j) + field(1,j,k) - feq(k, 1, j);
+        }
+
+        // Right boundary (x = NX)
+        for(k = 0; k < D; k++) velocity(NX,j,k) = 0.0;
+
+        density(NX,j) = density(NX-1,j);
+        for (k = 0; k < Q; k++) {
+            field(NX,j,k) = feq(k, NX, j) + field(NX-1,j,k) - feq(k, NX-1, j);
+        }
+    }
+	
+    for (i = 0; i <= NX; i++) { // Bottom and top boundaries
+        velocity(i,NY,0) = U; 
+        for(k = 1; k < D; k++) velocity(i,NY,k) = 0.0;
+
+        density(i,NY) = density(i,NY - 1);
+        for (k = 0; k < Q; k++) {
+            field(i,NY,k) = feq(k, i, NY) + field(i,NY-1,k) - feq(k, i, NY-1);
+        }
+
+        // Top boundary (y = NY)
+        for(k = 0; k < D; k++) velocity(i,0,k) = 0.0;
+
+        density(i,0) = density(i,1);
+        for (k = 0; k < Q; k++) {
+            field(i,0,k) = feq(k, i, 0) + field(i,1,k) - feq(k, i, 1);
+        }
+    }
+}
