@@ -11,13 +11,13 @@ def read_data(file_name):
         # reading grid size
         nx = int(f.readline().strip())+1
         ny = int(f.readline().strip())+1
-        
+
         # reading velocities
         num_elements = nx * ny
         data = []
         for line in f:
             data.append(float(line.strip()))
-    
+
     return nx, ny, data
 
 def create_frames(nx, ny, data, num_iterations):
@@ -37,12 +37,16 @@ def create_frames(nx, ny, data, num_iterations):
         frame = np.frombuffer(plt.gcf().canvas.tostring_rgb(), dtype=np.uint8)
         frame = frame.reshape(plt.gcf().canvas.get_width_height()[::-1] + (3,))
         frames.append(frame)
-        print(iter+1, "/", num_iterations)
+
+        # Calcola la percentuale e aggiorna la stessa linea nel terminale
+        percent_complete = (iter + 1) / num_iterations * 100
+        print(f"Progress: {percent_complete:.2f}%", end='\r')
+
+    print()  # Per assicurarsi che il prompt successivo inizi su una nuova linea
     return frames
 
-
 def save_video(frames, output_file):
-    imageio.mimsave(output_file, frames, fps=5)
+    imageio.mimsave(output_file, frames, fps=60)
 
 if __name__ == '__main__':
     nx, ny, data = read_data(input_file)
