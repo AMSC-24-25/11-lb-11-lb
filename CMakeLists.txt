@@ -26,7 +26,17 @@ if(NOT matplotplusplus_POPULATED)
     add_subdirectory(${matplotplusplus_SOURCE_DIR} ${matplotplusplus_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
+set(SOURCES
+    src/main.cpp
+    src/LBM.cpp
+)
 
-add_executable(11-LB src/main.cpp)
+set(HEADERS
+    src/LBM.hpp
+)
+
+include_directories(src)
+
+add_executable(11-LB ${SOURCES} ${HEADERS})
 target_link_libraries(11-LB PUBLIC matplot)
 

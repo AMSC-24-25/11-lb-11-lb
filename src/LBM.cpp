@@ -1,164 +1,143 @@
 #include "LBM.hpp"
 
-// consrtuctor
-template <size_t dim>
-LBM<dim>::LBM(size_t nx_, size_t ny_, size_t nz_, double tau_)
-    : nx(nx_), ny(ny_), nz(nz_), tau(tau_) {
-    initialize();
-}
+#include <cstdlib>
 
-template <size_t dim>
-void LBM<dim>::initialize()
-{
-    size_t total_nodes = nx*ny*(dim == 3 ? nz : 1);
-    velocities = generateVelocities();
-    f.resize(total_nodes, std::vector<double> (velocities.size(), 1.0));
-    f_temp = f;
-    rho.resize(total_nodes, 1.0);
-    u.resize(total_nodes, {0.0});
-}
+LBM::LBM(unsigned int nx, unsigned int ny, double u_lid, double Re) : NX(nx), NY(ny), U(u_lid), Re(Re) {
+    dx = 1.0;         // Spatial step
+    dy = 1.0;         // Spatial step
+    Lx = dx * double(NY); // Domain length in y
+    Ly = dy * double(NX); // Domain length in x
+    dt = dx;          // Time step
+    c = dx / dt;      // Speed of sound (in lattice units)
+    rho0 = 1.0;       // Initial density
+    //Re = 1000;        // Reynolds number
+    niu = U * Lx / Re; // Kinematic viscosity
+    tau_f = 3.0 * niu + 0.5; // Relaxation time
 
-template <size_t dim>
-std::vector<std::array<double, dim>> LBM<dim>::generateVelocities()
-{
-    if constexpr (dim==2)
-        return {{0,0}, {1,0}, {0,1}, {-1,0}, {0,-1}};
-    else if constexpr (dim == 3)
-        return {{0,0,0}, {1,0,0}, {0,1,0}, {0,0,1}, {-1,0,0}, {0,-1,0}, {0,0,-1}};
-    else 
-    {
-        std::cout << "\n!DIMENTIONS ARE NOT COMPATIBLE!" << std::endl;
-        return 0;
+    rho = (double*)malloc(sizeof(double)*(NX+1)*(NY+1));
+    u = (double*)malloc(sizeof(double)*(NX+1)*(NY+1)*D);
+    f = (double*)malloc(sizeof(double)*(NX+1)*(NY + 1)*Q);
+    F = (double*)malloc(sizeof(double)*(NX+1)*(NY + 1)*Q);
+
+
+
+    // Initialize variables in the domain
+    for (i = 0; i <= NX; i++) {
+        for (j = 0; j <= NY; j++) {
+            for(k = 0; k < D; k++) {
+                velocity(i,j,k) = 0; // Initial velocity
+            }
+
+            density(i,j) = rho0; // Initial density
+			velocity(i, NY, 0) = U;  // Velocity imposed on the upper boundary
+
+            for (k = 0; k < Q; k++) {
+                field(i,j,k) = feq(k, i, j); // Initial equilibrium function
+            }
+			velocity(i,NY,0) = U; // Velocity imposed on the upper boundary
+        }
     }
 }
 
-template <size_t dim>
-void LBM<dim>::simulate() {
-    // new f temp to update f_temp during the collision
-    std::vector<std::vector<double>> new_f_temp(f.size(), 
-                                                std::vector<double> (velocities.size(), 0.0));
-    // Colllision has to be considered first
-    for (size_t node; node < f.size(); node++)
-    {
-        // Macroscopic variables have to be evaluated at each time step starting from 0
-        rho[node] = 0.0;
-        u[node] ={1.0};
+LBM::~LBM() {
+    free(rho);
+    free(u);
+    free(f);
+    free(F);
+}
 
-        // Evaluation
-        for (size_t i=0; i<velocities.size(); i++)
-        {
-            rho[node] += f[node][i];
-            for (size_t d=0; d<dim ; d++)
-            {
-                u[node][d] = f[node][i]*velocities[i][d];
+// Compute the equilibrium function
+double LBM::feq(unsigned int k, unsigned int x, unsigned int y) { 
+    double eu{0.0}, uv{0.0};
+    for(int a = 0; a < D; a++) {
+        eu += direction(k,a) * velocity(x,y,a);  
+        uv += velocity(x,y,a) * velocity(x,y,a);
+    }
+
+    return w[k] * density(x,y) * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
+}
+
+void LBM::evolution(unsigned int iterations) {
+    for(int iter = 0; iter < iterations; iter++) {
+        compute_collision();      // Collision
+        compute_macro_quantities(); // Update macroscopic density and velocities
+        apply_boundary_conditions(); // Apply boundary conditions
+    }
+}
+
+// Collision
+void LBM::compute_collision() {
+    for (i = 1; i < NX; i++) {
+        for (j = 1; j < NY; j++) {
+            for (k = 0; k < Q; k++) {
+                ip = i - direction(k,0); // Node from which the contribution comes
+                jp = j - direction(k,1);
+
+                field_2(i,j,k) = field(ip,jp,k) +(feq(k, ip, jp) - field(ip,jp,k)) / tau_f; // Collision
             }
         }
-        // Velocity has to be normalized
-        for (size_t d = 0; d < dim; ++d) {
-            u[node][d] /= rho[node];
-        }
-        for (size_t i=0; i<velocities.size() ; i++)
-        {
-            double feq = equilibrium( rho[node], u[node], velocities[i]);
-            new_f_temp[node][i] = f[node][i] + (feq - f[node][i]) / tau;
-        }
+    }
+}
 
-        // Streaming part
-        for (size_t x = 0; x<nx ; x++){
-            for (size_t y=0; y<ny; y++){
-                for (size_t z=0; z< (dim==3 ? nz : 1); z++){
-                    size_t node = x+nx*(y+ny*(z));
+// Compute macroscopic quantities
+void LBM::compute_macro_quantities() {
+    for (i = 0; i < NX; i++) {
+        for (j = 0; j < NY; j++) {
+            density(i,j) = 0;
 
-                     // Streaming for each direction
-                    for (size_t i = 0; i < velocities.size(); ++i) {
-                        int dx = velocities[i][0];
-                        int dy = velocities[i][1];
-                        int dz = (dim == 3) ? velocities[i][2] : 0;
-
-                        // source node
-                        size_t source_x = (x + nx - dx) % nx;
-                        size_t source_y = (y + ny - dy) % ny;
-                        size_t source_z = (dim == 3) ? (z + nz - dz) % nz : 0;
-
-                        size_t source_node = source_x + nx * (source_y + ny * source_z);
-
-                        // copy distribution after collision
-                        f[node][i] = new_f_temp[source_node][i];
-                    }
-                }
+            for(k = 0; k < D; k++) velocity(i,j,k) = 0;
+            
+            for (k = 0; k < Q; k++) {
+                field(i,j,k) = field_2(i,j,k);
+                density(i,j) += field(i,j,k);
+            
+                velocity(i,j,0) += direction(k,0) * field(i,j,k);
+                velocity(i,j,1) += direction(k,1) * field(i,j,k);
             }
+
+            for(k = 0; k < D; k++) velocity(i,j,k) /= density(i,j);
+        }
+    }
+}
+
+// Apply boundary conditions
+void LBM::apply_boundary_conditions() {
+    for (j = 0; j <= NY; j++) { // Left and right boundaries
+        // Left boundary (x = 0)
+        for(k = 0; k < D; k++) velocity(0,j,k) = 0.0;
+        
+        density(0,j) = density(1,j);
+        for (k = 0; k < Q; k++) {
+            field(0,j,k) = feq(k, 0, j) + field(1,j,k) - feq(k, 1, j);
         }
 
-    }
-}
+        // Right boundary (x = NX)
+        for(k = 0; k < D; k++) velocity(NX,j,k) = 0.0;
 
-template <size_t dim>
-double LBM<dim>::equilibrium(double rho, const std::array<double, dim> &u, const std::array<double, dim> &v)
-{
-    double uv = dotProduct(u, v);
-    double uu = dotProduct(u, u);
-    return rho * (1.0 + 3.0 * uv + 4.5 * uv * uv - 1.5 * uu);
-}
-
-template <size_t dim>
-double LBM<dim>::dotProduct(const std::array<double, dim>& a, const std::array<double, dim>& b) {
-    double result = 0.0;
-    for (size_t i = 0; i < dim; ++i) {
-        result += a[i] * b[i];
-    }
-    return result;
-}
-
-template <size_t dim>
-void LBM<dim>::setBoundaryVelocity(size_t x, size_t y, std::array<double, dim> velocity) {
-    size_t node = x + nx * y;
-    u[node] = velocity;
-
-    // update f to respect boundary conditions
-    for (size_t i = 0; i < velocities.size(); ++i) {
-        f[node][i] = equilibrium(rho[node], velocity, velocities[i]);
-    }
-}
-
-// Funzione per esportare i dati in formato VTK
-template <size_t dim>
-void LBM<dim>::writeVTK(const std::string& filename) {
-    std::ofstream vtkFile(filename);
-
-    if (!vtkFile.is_open()) {
-        std::cerr << "Errore nell'aprire il file VTK!" << std::endl;
-        return;
-    }
-
-    // Header del file VTK
-    vtkFile << "# vtk DataFile Version 3.0\n";
-    vtkFile << "LBM Data\n";
-    vtkFile << "ASCII\n";
-    vtkFile << "DATASET STRUCTURED_POINTS\n";
-    vtkFile << "DIMENSIONS " << nx << " " << ny << " " << (dim == 3 ? nz : 1) << "\n";
-    vtkFile << "ORIGIN 0 0 0\n";
-    vtkFile << "SPACING 1 1 1\n";
-    vtkFile << "POINT_DATA " << nx * ny * (dim == 3 ? nz : 1) << "\n";
-
-    // Esportazione della densità
-    vtkFile << "SCALARS density double 1\n";
-    vtkFile << "LOOKUP_TABLE default\n";
-    for (size_t i = 0; i < nx * ny * (dim == 3 ? nz : 1); ++i) {
-        vtkFile << rho[i] << "\n";
-    }
-
-    // Esportazione della velocità (composto di componenti X, Y e Z)
-    vtkFile << "VECTORS velocity double\n";
-    for (size_t i = 0; i < nx * ny * (dim == 3 ? nz : 1); ++i) {
-        vtkFile << u[i][0] << " " << u[i][1];
-        if (dim == 3) {
-            vtkFile << " " << u[i][2];
+        density(NX,j) = density(NX-1,j);
+        for (k = 0; k < Q; k++) {
+            field(NX,j,k) = feq(k, NX, j) + field(NX-1,j,k) - feq(k, NX-1, j);
         }
-        vtkFile << "\n";
     }
+	
+    for (i = 0; i <= NX; i++) { // Bottom and top boundaries
+        velocity(i,NY,0) = U;
 
-    vtkFile.close();
+        for(k = 1; k < D; k++) velocity(i,NY,k) = 0.0;
+
+        density(i,NY) = density(i,NY - 1);
+        for (k = 0; k < Q; k++) {
+            field(i,NY,k) = feq(k, i, NY) + field(i,NY-1,k) - feq(k, i, NY-1);
+        }
+
+        // Bottom boundary (y = 0)
+        for(k = 0; k < D; k++) velocity(i,0,k) = 0.0;
+
+        velocity(i,0,0) = 0;
+
+        density(i,0) = density(i,1);
+        for (k = 0; k < Q; k++) {
+            field(i,0,k) = feq(k, i, 0) + field(i,1,k) - feq(k, i, 1);
+        }
+    }
 }
-
-template class LBM<2>; // for 2D
-template class LBM<3>; // for 3D
