@@ -33,19 +33,19 @@ private:
     }
 
     inline double& density(unsigned int x, unsigned int y){
-        return rho[(NX+1)*y+x];
+        return rho[(NY+1)*x+y];
     }
 
     inline double& velocity(unsigned int x, unsigned int y, unsigned int d){
-        return u[((NX+1)*y+x)*D + d];
+        return u[((NY+1)*x+y)*D + d];
     }
 
     inline double& field(unsigned int x, unsigned int y,unsigned int d){
-        return f[((NX+1)*y+x)*Q + d];
+        return f[((NY+1)*x+y)*Q + d];
     }
 
     inline double& field_2(unsigned int x, unsigned int y,unsigned int d){
-        return F[((NX+1)*y+x)*Q + d];
+        return F[((NY+1)*x+y)*Q + d];
     }
 
     double feq(unsigned int k, unsigned int x, unsigned int y);
@@ -66,7 +66,7 @@ public :
     void evolution(unsigned int iterations=1);
 
     inline const double& get_vel(unsigned int x, unsigned int y, unsigned int d) const {
-        return u[((NX+1)*y+x)*D + d];
+        return u[((NY+1)*x+y)*D + d];
     }
 
 }; 
