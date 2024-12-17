@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iomanip> 
 
+
 #include "LBM.hpp"
 
 
@@ -26,10 +27,11 @@ int main() {
     }
     file << NX << "\n" << NY << "\n";
 
-    LBM lbm(NX, NY, 0.5, 10000);
+    LBM lbm(NX, NY, 0.5, 200000);
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
+    #pragma omp parallel for 
     for (int n = 1; n <= maxSteps; n++) {
         lbm.evolution(); // System evolution
 

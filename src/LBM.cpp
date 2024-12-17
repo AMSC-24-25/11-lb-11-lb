@@ -22,7 +22,8 @@ LBM::LBM(unsigned int nx, unsigned int ny, double u_lid, double Re) : NX(nx), NY
 
 
     // Initialize variables in the domain
-    for (i = 0; i <= NX; i++) {
+    #pragma omp parallel for collapse(2) 
+       for (i = 0; i <= NX; i++) {
         for (j = 0; j <= NY; j++) {
             for(k = 0; k < D; k++) {
                 velocity(i,j,k) = 0; // Initial velocity
@@ -37,6 +38,8 @@ LBM::LBM(unsigned int nx, unsigned int ny, double u_lid, double Re) : NX(nx), NY
 			velocity(i,NY,0) = U; // Velocity imposed on the upper boundary
         }
     }
+    
+
 }
 
 LBM::~LBM() {
@@ -49,6 +52,7 @@ LBM::~LBM() {
 // Compute the equilibrium function
 double LBM::feq(unsigned int k, unsigned int x, unsigned int y) { 
     double eu{0.0}, uv{0.0};
+    #pragma omp parallel for 
     for(int a = 0; a < D; a++) {
         eu += direction(k,a) * velocity(x,y,a);  
         uv += velocity(x,y,a) * velocity(x,y,a);
@@ -58,6 +62,8 @@ double LBM::feq(unsigned int k, unsigned int x, unsigned int y) {
 }
 
 void LBM::evolution(unsigned int iterations) {
+   
+    #pragma omp parallel for 
     for(int iter = 0; iter < iterations; iter++) {
         compute_collision();      // Collision
         compute_macro_quantities(); // Update macroscopic density and velocities
@@ -67,6 +73,7 @@ void LBM::evolution(unsigned int iterations) {
 
 // Collision
 void LBM::compute_collision() {
+    #pragma omp parallel for collapse(3)
     for (i = 1; i < NX; i++) {
         for (j = 1; j < NY; j++) {
             for (k = 0; k < Q; k++) {
@@ -81,6 +88,7 @@ void LBM::compute_collision() {
 
 // Compute macroscopic quantities
 void LBM::compute_macro_quantities() {
+    #pragma omp parallel for collapse(2)
     for (i = 0; i < NX; i++) {
         for (j = 0; j < NY; j++) {
             density(i,j) = 0;
