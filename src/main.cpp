@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iomanip> 
 
+
 #include "LBM.hpp"
 
 
@@ -30,6 +31,7 @@ int main() {
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
+    #pragma omp parallel for 
     for (int n = 1; n <= maxSteps; n++) {
         lbm.evolution(); // System evolution
 
