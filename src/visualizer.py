@@ -9,8 +9,8 @@ input_file = 'vel_data.txt'
 def read_data(file_name):
     with open(file_name, 'r') as f:
         # reading grid size
-        nx = int(f.readline().strip())+1
-        ny = int(f.readline().strip())+1
+        nx = int(f.readline().strip())
+        ny = int(f.readline().strip())
 
         # reading velocities
         num_elements = nx * ny

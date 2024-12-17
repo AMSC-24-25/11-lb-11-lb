@@ -9,23 +9,31 @@ private:
     static constexpr int Q = 9;      
     
     // Velocity configuration for the D2Q9 model
-    static constexpr int e[Q * D] = {0, 0, 1, 0, 0, 1,-1, 0,0, -1,1, 1,-1, 1,-1, -1,1, -1};
+    static constexpr int e[Q * D] = {1,1,  1,0,  1,-1,  0,1,  0,0,  0,-1,  -1,1,  -1,0,  -1,-1};
 
     // Equilibrium function weights for each direction
     static constexpr double w[Q] = {
-        4.0 / 9, 1.0 / 9, 1.0 / 9, 1.0 / 9, 1.0 / 9, 1.0 / 36, 1.0 / 36, 1.0 / 36, 1.0 / 36
-        };
+        1.0/36.0,
+        1.0/9.0,
+        1.0/36.0,
+        1.0/9.0,
+        4.0/9.0,
+        1.0/9.0,
+        1.0/36.0,
+        1.0/9.0,
+        1.0/36.0
+    };
 
-    const double U = 0.50; // Velocity imposed on the upper boundary
+    const double u_lid; // Velocity imposed on the upper boundary
 
     // Main domain variables
     double  *rho, 
+            *rho2,
             *u,
+            *u2,
             *f, 
             *F;
 
-    // Global variables for iterations and model parameters
-    int i, j, k, ip, jp, n, P, Z;
     double c, Re, dx, dy, Lx, Ly, dt, rho0, P0, tau_f, niu, error;
 
     static inline const int& direction(unsigned int d, unsigned int v){
@@ -33,26 +41,33 @@ private:
     }
 
     inline double& density(unsigned int x, unsigned int y){
-        return rho[(NY+1)*x+y];
+        return rho[(NY)*x+y];
+    }
+
+    inline double& density_2(unsigned int x, unsigned int y){
+        return rho2[(NY)*x+y];
     }
 
     inline double& velocity(unsigned int x, unsigned int y, unsigned int d){
-        return u[((NY+1)*x+y)*D + d];
+        return u[((NY)*x+y)*D + d];
+    }
+
+    inline double& velocity_2(unsigned int x, unsigned int y, unsigned int d){
+        return u2[((NY)*x+y)*D + d];
     }
 
     inline double& field(unsigned int x, unsigned int y,unsigned int d){
-        return f[((NY+1)*x+y)*Q + d];
+        return f[((NY)*x+y)*Q + d];
     }
 
     inline double& field_2(unsigned int x, unsigned int y,unsigned int d){
-        return F[((NY+1)*x+y)*Q + d];
+        return F[((NY)*x+y)*Q + d];
     }
 
     double feq(unsigned int k, unsigned int x, unsigned int y);
 
     
-    void compute_collision();  
-    void compute_macro_quantities();
+    void compute();  
     void apply_boundary_conditions();
 
 public : 
@@ -63,10 +78,11 @@ public :
     LBM(unsigned int nx, unsigned int ny, double u_lid, double Re);
     ~LBM();
 
-    void evolution(unsigned int iterations=1);
+    void evolution();
+    void evolution(unsigned int iterations);
 
     inline const double& get_vel(unsigned int x, unsigned int y, unsigned int d) const {
-        return u[((NY+1)*x+y)*D + d];
+        return u[((NY)*x+y)*D + d];
     }
 
 }; 

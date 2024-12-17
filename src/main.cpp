@@ -8,7 +8,7 @@
 
 
 
-const int maxSteps = 2000; // Maximum number of time steps
+const int maxSteps = 20000; // Maximum number of time steps
 
 
 const int ITERATIONS_PER_FRAME = 10;
@@ -26,7 +26,7 @@ int main() {
     }
     file << NX << "\n" << NY << "\n";
 
-    LBM lbm(NX, NY, 0.5, 10000);
+    LBM lbm(NX, NY, 0.5, 10100);
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -35,16 +35,17 @@ int main() {
 
         //Every ITERATIONS_PER_FRAME steps, save velocity data
         if (n % ITERATIONS_PER_FRAME == 0) {
-            for (int i = 0; i <= NX; ++i) {
-                for (int j = 0; j <= NY; ++j) {
+            for (int i = 0; i < lbm.NX; ++i) {
+                for (int j = 0; j < lbm.NY; ++j) {
                     double vx = lbm.get_vel(i,j,0); 
                     double vy = lbm.get_vel(i,j,1);
                     double v = sqrt(vx*vx + vy*vy); 
                     file << v << "\n";
                 }
             }
+            
         }
-
+        
         // Update the progress bar
         if (n % ITERATIONS_PER_PROGRESS_UPDATE == 0 || n == maxSteps - 1) {
             float progress = (static_cast<float>(n) / maxSteps);
@@ -59,6 +60,7 @@ int main() {
                       << "| Elapsed Time: " << elapsedTime << "s, "
                       << "Remaining Time (estimated): " << static_cast<int>(remainingTime) << "s"
                       << std::flush;
+                      
         }
     }
 
