@@ -9,7 +9,7 @@
 
 
 
-const int maxSteps = 20000; // Maximum number of time steps
+const int maxSteps = 10000; // Maximum number of time steps
 
 
 const int ITERATIONS_PER_FRAME = 10;
@@ -31,7 +31,6 @@ int main() {
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
-    #pragma omp parallel for 
     for (int n = 1; n <= maxSteps; n++) {
         lbm.evolution(); // System evolution
 

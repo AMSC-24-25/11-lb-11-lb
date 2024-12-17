@@ -65,8 +65,6 @@ void LBM::evolution() {
 
 
 void LBM::evolution(unsigned int iterations) {
-   
-    #pragma omp parallel for 
     for(int iter = 0; iter < iterations; iter++) {
         compute();      // Collision and Update macroscopic density and velocities
         apply_boundary_conditions(); // Apply boundary conditions
