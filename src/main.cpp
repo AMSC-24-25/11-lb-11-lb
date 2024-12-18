@@ -10,7 +10,8 @@
 
 
 const int maxSteps = 10000; // Maximum number of time steps
-
+const double Re = 10000;
+const double u_lid = 0.5;
 
 const int ITERATIONS_PER_FRAME = 10;
 const int ITERATIONS_PER_PROGRESS_UPDATE = 100;
@@ -22,12 +23,12 @@ int main() {
     // Create the output file for velocity
     std::ofstream file("vel_data.txt");
     if (!file.is_open()) {
-        std::cerr << "Creazione di vel_data.txt fallita.\n";
+        std::cerr << "could not opene/create 'vel_data.txt'.\n";
         return 1;
     }
     file << NX << "\n" << NY << "\n";
 
-    LBM lbm(NX, NY, 0.5, 10100);
+    LBM lbm(NX, NY, u_lid, Re);
 
     auto startTime = std::chrono::high_resolution_clock::now();
 

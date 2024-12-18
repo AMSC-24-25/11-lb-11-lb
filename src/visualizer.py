@@ -6,6 +6,8 @@ import sys
 # input file name
 input_file = 'vel_data.txt'
 
+iteration_per_frame = 10
+
 def read_data(file_name):
     with open(file_name, 'r') as f:
         # reading grid size
@@ -27,9 +29,9 @@ def create_frames(nx, ny, data, num_iterations):
         frame_data = np.array(data[iter * nx * ny:(iter + 1) * nx * ny]).reshape(ny, nx)
         frame_data = frame_data.T
 
-        plt.imshow(frame_data, cmap='viridis', origin='lower')  # 'origin' è impostato su 'lower' per far partire y da 0 in basso
+        plt.imshow(frame_data, cmap='plasma', origin='lower')  # 'origin' è impostato su 'lower' per far partire y da 0 in basso
         plt.colorbar(label='Velocity Magnitude')
-        plt.title(f'Iteration {(iter + 1)*100}')
+        plt.title(f'Iteration {(iter + 1)*iteration_per_frame}')
 
         # La visualizzazione ora avrà l'asse x da 0 a nx e y da 0 a ny
         plt.pause(0.001)  
@@ -46,7 +48,7 @@ def create_frames(nx, ny, data, num_iterations):
     return frames
 
 def save_video(frames, output_file):
-    imageio.mimsave(output_file, frames, fps=60)
+    imageio.mimsave(output_file, frames, fps=24)
 
 if __name__ == '__main__':
     nx, ny, data = read_data(input_file)
