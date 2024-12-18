@@ -10,9 +10,8 @@ LBM::LBM(unsigned int nx, unsigned int ny, double u_lid, double Re) : NX(nx), NY
     dt = dx;          // Time step
     c = dx / dt;      // Speed of sound (in lattice units)
     rho0 = 1.0;       // Initial density
-    //Re = 1000;        // Reynolds number
-    niu = u_lid * Lx / Re; // Kinematic viscosity
-    tau_f = 3.0 * niu + 0.5; // Relaxation time
+    nu = u_lid * Lx / Re; // Kinematic viscosity
+    tau_f = 3.0 * nu + 0.5; // Relaxation time
 
     rho = (double*)malloc(sizeof(double)*(NX)*(NY));
     rho2 = (double*)malloc(sizeof(double)*(NX)*(NY));
@@ -42,6 +41,7 @@ LBM::LBM(unsigned int nx, unsigned int ny, double u_lid, double Re) : NX(nx), NY
 }
 
 LBM::~LBM() {
+    // freeing the allocated memory
     free(rho);
     free(rho2);
     free(u);
@@ -50,11 +50,11 @@ LBM::~LBM() {
     free(F);
 }
 
-// Compute the equilibrium function
 double LBM::feq(unsigned int k, unsigned int x, unsigned int y) {  
     double eu = direction(k,0) * velocity(x,y,0) + direction(k,1) * velocity(x,y,1);  
     double uv = velocity(x,y,0) * velocity(x,y,0) + velocity(x,y,1) * velocity(x,y,1);
 
+    // Compute equilibrium distribution function value
     return w[k] * density(x,y) * (1.0 + 3.0 * eu + 4.5 * eu * eu - 1.5 * uv);
 }
 
@@ -71,21 +71,21 @@ void LBM::evolution(unsigned int iterations) {
     }
 }
 
-// Collision and Update macroscopic density and velocities
+
 void LBM::compute() {
     #pragma omp parallel for collapse(2)
     for (int i = 1; i < NX-1; i++) {
         for (int j = 1; j < NY-1; j++) {
-    
-            density_2(i,j) = 0;
+            density_2(i,j) = 0; // Initialize updated density
 
-            velocity_2(i,j,0) = 0;
-            velocity_2(i,j,1) = 0;
+            velocity_2(i,j,0) = 0; // Initialize updated velocity x-component
+            velocity_2(i,j,1) = 0; // Initialize updated velocity y-component
 
             for (int k = 0; k < Q; k++) {
                 int ip = i - direction(k,0); // Node from which the contribution comes
                 int jp = j - direction(k,1);
 
+                // Compute collision step
                 field_2(i,j,k) = field(ip,jp,k) +(feq(k, ip, jp) - field(ip,jp,k)) / tau_f; // Collision
 
                 density_2(i,j) += field_2(i,j,k);
@@ -94,11 +94,13 @@ void LBM::compute() {
                 velocity_2(i,j,1) += direction(k,1) * field_2(i,j,k);
             }
 
+            // Normalize velocity components
             velocity_2(i,j,0) /= density_2(i,j);
             velocity_2(i,j,1) /= density_2(i,j);
         }
     }
 
+    // Swap pointers to update fields
     double *t;
 
     t = u;
@@ -115,7 +117,6 @@ void LBM::compute() {
 }
 
 
-// Apply boundary conditions
 void LBM::apply_boundary_conditions() {
     for (int j = 0; j < NY; j++) { // Left and right boundaries
         // Left boundary (x = 0)
