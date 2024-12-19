@@ -7,15 +7,15 @@
 
 #include "LBM.hpp"
 
-const int maxSteps = 20000; // number of time steps
-const double Re = 10000;
+const int maxSteps = 10000; // number of time steps
+const double Re = 1000;
 const double u_lid = 0.5;
 
-const int ITERATIONS_PER_FRAME = 50;
-const int ITERATIONS_PER_PROGRESS_UPDATE = 100;
+const int ITERATIONS_PER_FRAME = 20;
+const int ITERATIONS_PER_PROGRESS_UPDATE = 10;
 
-const int NX = 200; // Dimension in the x-direction
-const int NY = 240; // Dimension in the y-direction
+const int NX = 250; // Dimension in the x-direction
+const int NY = 250; // Dimension in the y-direction
 
 int main() {
     // Create the output file for velocity

@@ -7,7 +7,7 @@ import sys
 input_file = 'vel_data.txt'
 
 
-iteration_per_frame = 50
+iteration_per_frame = 20
 
 def read_data(file_name):
     with open(file_name, 'r') as f:
