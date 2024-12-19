@@ -39,7 +39,38 @@ We parallelized the code using OpenMP. The main bottleneck in the computation is
 We observed a significant improvement in computation time.
 
 #### Strong scalability test
-todo
+We tested how our code performed wrt the number of threads (and fixed cavity size).
+
+The following table contains the execution times recorded on a pc with 6 cores and 12 threads.
+The simulation has been run for 10'000 iterations.
+| Threads | Time (ms) | Speedup       | Efficiency    |
+|---------|-----------|---------------|---------------|
+| 1       | 69187     | 1.00          | 1.00          |
+| 2       | 38153     | 1.81          | 0.91          |
+| 3       | 29987     | 2.31          | 0.77          |
+| 4       | 27700     | 2.50          | 0.63          |
+| 5       | 24697     | 2.80          | 0.56          |
+| 6       | 22624     | 3.06          | 0.51          |
+| 7       | 19980     | 3.46          | 0.49          |
+| 8       | 17710     | 3.91          | 0.49          |
+| 9       | 16086     | 4.30          | 0.48          |
+| 10      | 14747     | 4.69          | 0.47          |
+| 11      | 14664     | 4.72          | 0.43          |
+| 12      | 18187     | 3.80          | 0.32          |
+
+The following table contains the execution times recorded on a pc with 8 cores and 8 threads
+The simulation has been run for 10'000 iterations.
+| Threads | Time (ms) | Speedup       | Efficiency    |
+|---------|-----------|---------------|---------------|
+| 1       | 53929     | 1.00          | 1.00          |
+| 2       | 31645     | 1.70          | 0.85          |
+| 3       | 23348     | 2.31          | 0.77          |
+| 4       | 19208     | 2.81          | 0.70          |
+| 5       | 16473     | 3.27          | 0.65          |
+| 6       | 15139     | 3.56          | 0.59          |
+| 7       | 13518     | 3.99          | 0.57          |
+| 8       | 25401     | 2.12          | 0.27          |
+
 
 #### Weak scalability test
 todo
