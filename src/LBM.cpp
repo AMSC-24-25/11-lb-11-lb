@@ -27,10 +27,13 @@ LBM::LBM(unsigned int nx, unsigned int ny, double u_lid, double Re) : NX(nx), NY
         for (int j = 0; j < NY; j++) {
             for(int k = 0; k < D; k++) {
                 velocity(i,j,k) = 0; // Initial velocity
+                velocity_2(i,j,k) = 0;
             }
 
             density(i,j) = rho0; // Initial density
+            density_2(i,j) = rho0;
 			velocity(i, NY, 0) = u_lid;  // Velocity imposed on the upper boundary
+            velocity_2(i, NY, 0) = u_lid;
 
             for (int k = 0; k < Q; k++) {
                 field(i,j,k) = feq(k, i, j); // Initial equilibrium function
@@ -118,42 +121,41 @@ void LBM::compute() {
 
 
 void LBM::apply_boundary_conditions() {
-    for (int j = 0; j < NY; j++) { // Left and right boundaries
-        // Left boundary (x = 0)
-        velocity(0,j,0) = 0.0;
-        velocity(0,j,1) = 0.0;
-        
-        density(0,j) = density(1,j);
-        for (int k = 0; k < Q; k++) {
-            field(0,j,k) = feq(k, 0, j) + field(1,j,k) - feq(k, 1, j);
+    #pragma omp parallel
+    {
+        // Parallelizza il primo loop (Left e Right boundaries)
+        #pragma omp for nowait
+        for (int j = 1; j < NY - 1; j++) {
+            // Left boundary (x = 0)
+            velocity(0, j, 0) = 0.0;
+            velocity(0, j, 1) = 0.0;
+            velocity(NX-1, j, 0) = 0.0;
+            velocity(NX-1, j, 1) = 0.0;
+
+            density(0,j) = density(1,j);
+            density(NX-1,j) = density(NX-2,j);
+            for (int k = 0; k < Q; k++) {
+                field(0, j, k) = feq(k, 0, j) + field(1, j, k) - feq(k, 1, j);
+                field(NX - 1, j, k) = feq(k, NX - 1, j) + field(NX - 2, j, k) - feq(k, NX - 2, j);
+            }
         }
 
-        // Right boundary (x = NX-1)
-        velocity(NX-1,j,0) = 0.0;
-        velocity(NX-1,j,1) = 0.0;
+        // Parallelizza il secondo loop (Top e Bottom boundaries)
+        #pragma omp for
+        for (int i = 0; i < NX; i++) {
+            // Top boundary (y = NY-1)
+            velocity(i, NY - 1, 0) = u_lid;
+            velocity(i, NY - 1, 1) = 0.0;
+            velocity(i, 0, 0) = 0.0;
+            velocity(i, 0, 1) = 0.0;
 
-        density(NX-1,j) = density(NX-2,j);
-        for (int k = 0; k < Q; k++) {
-            field(NX-1,j,k) = feq(k, NX-1, j) + field(NX-2,j,k) - feq(k, NX-2, j);
-        }
-    }
-	
-    for (int i = 0; i < NX; i++) { // Bottom and top boundaries
-        velocity(i,NY-1,0) = u_lid;
-        velocity(i,NY-1,1) = 0.0;
-
-        density(i,NY-1) = density(i,NY - 2);
-        for (int k = 0; k < Q; k++) {
-            field(i,NY-1,k) = feq(k, i, NY-1) + field(i,NY-2,k) - feq(k, i, NY-2);
+            density(i,NY-1) = density(i,NY - 2);
+            density(i,0) = density(i,1);
+            for (int k = 0; k < Q; k++) {
+                field(i, NY - 1, k) = feq(k, i, NY - 1) + field(i, NY - 2, k) - feq(k, i, NY - 2);
+                field(i, 0, k) = feq(k, i, 0) + field(i, 1, k) - feq(k, i, 1);
+            }
         }
 
-        // Bottom boundary (y = 0)
-        velocity(i,0,1) = 0.0;
-        velocity(i,0,2) = 0.0;
-
-        density(i,0) = density(i,1);
-        for (int k = 0; k < Q; k++) {
-            field(i,0,k) = feq(k, i, 0) + field(i,1,k) - feq(k, i, 1);
-        }
     }
 }
