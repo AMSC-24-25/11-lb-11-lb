@@ -2,6 +2,38 @@
 ### Introduction and objectives
 This projects uses the Lattice Boltzmann Methods (LBM) to perform a 2D fluid simulation with the D2Q9 model. Specifically, the aim was to solve the 2D lid-driven cavity problem.
 
+
+### Building the Project
+
+To build the project using CMake, follow these steps:
+
+1. Clone the repository and navigate to the main directory.
+2. Run the following commands:
+
+   
+   ### Create a directory for build files
+   ```bash
+   mkdir build
+   ```
+
+   
+   ### Enter the build directory
+   ```bash
+   cd build
+   ```
+  
+   ### Generate configuration files
+   ```bash
+   cmake ..
+   ```
+    
+   ### Build the project
+   ```bash
+   cmake --build .
+   ```
+
+
+
 ### Parallelization Strategy
 We parallelized the code using OpenMP. The main bottleneck in the computation is represented by a single nested for-loop. The code was written so that each iteration was completely independent from the others and so that they all could be executed in parallel. To achieve this we needed to *bufferize* the whole computation so that two sets of memory location were used and then swapped for each iteration.
 We observed a significant improvement in computation time.
