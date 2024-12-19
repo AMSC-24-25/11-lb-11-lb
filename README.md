@@ -43,9 +43,9 @@ We tested how our code performed wrt the number of threads (and fixed cavity siz
 
 The following table contains the execution times recorded on a pc with 6 cores and 12 threads.
 The simulation has been run for 10'000 iterations.
-| Threads | Time (ms) | Speedup       | Efficiency    |
+| **Threads** | **Time (ms)** | **Speedup**       | **Efficiency**    |
 |---------|-----------|---------------|---------------|
-| 1       | 69187     | 1.00          | 1.00          |
+| 1       | 69187     | -         | -          |
 | 2       | 38153     | 1.81          | 0.91          |
 | 3       | 29987     | 2.31          | 0.77          |
 | 4       | 27700     | 2.50          | 0.63          |
@@ -60,9 +60,9 @@ The simulation has been run for 10'000 iterations.
 
 The following table contains the execution times recorded on a pc with 8 cores and 8 threads
 The simulation has been run for 10'000 iterations.
-| Threads | Time (ms) | Speedup       | Efficiency    |
+| **Threads** | **Time (ms)** | **Speedup**       | **Efficiency**    |
 |---------|-----------|---------------|---------------|
-| 1       | 53929     | 1.00          | 1.00          |
+| 1       | 53929     | -          | -          |
 | 2       | 31645     | 1.70          | 0.85          |
 | 3       | 23348     | 2.31          | 0.77          |
 | 4       | 19208     | 2.81          | 0.70          |
@@ -73,7 +73,37 @@ The simulation has been run for 10'000 iterations.
 
 
 #### Weak scalability test
-todo
+We tested how our code performed wrt the number of threads (and fixed workload per thread).
+
+The following table contains the execution times recorded on a pc with 6 cores and 12 threads.
+The simulation has been run for 1'000 iterations with ~20'000 lattice points per thread.
+| **Threads** | **Cavity Size** | **Time (ms)** | **Efficiency** |
+|-------------|-----------------|----------------|----------------|
+| 1           | 142x141          | 1381           | -                |
+| 2           | 200x200          | 1537           | 0.90             |
+| 3           | 246x244          | 1821           | 0.76             |
+| 4           | 284x282          | 2029           | 0.68             |
+| 5           | 317x316          | 2205           | 0.63             |
+| 6           | 347x346          | 2351           | 0.59             |
+| 7           | 375x374          | 2503           | 0.55             |
+| 8           | 400x400          | 2598           | 0.53             |
+| 9           | 425x424          | 2651           | 0.52             |
+| 10          | 448x447          | 2748           | 0.50             |
+| 11          | 470x469          | 2942           | 0.47             |
+| 12          | 491x489          | 3288           | 0.42             |
+
+The following table contains the execution times recorded on a pc with 8 cores and 8 threads
+The simulation has been run for 1'000 iterations with ~20'000 lattice points per thread.
+| **Threads** | **Cavity Size** | **Time (ms)** | **Efficiency** |
+|-------------|-----------------|----------------|----------------|
+| 1           | 142x141          | 1016           | -                |
+| 2           | 200x200          | 1027           | 0.99             |
+| 3           | 246x244          | 1058           | 0.96             |
+| 4           | 284x282          | 1109           | 0.92             |
+| 5           | 317x316          | 1191           | 0.85             |
+| 6           | 347x346          | 1257           | 0.81             |
+| 7           | 375x374          | 1295           | 0.78             |
+| 8           | 400x400          | 1413           | 0.72             |
 
 ### Validation of Results
 We were provided with some reference data to compare our results.
