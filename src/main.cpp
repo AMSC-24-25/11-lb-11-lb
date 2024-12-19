@@ -3,21 +3,19 @@
 #include <chrono>
 #include <fstream>
 #include <iomanip> 
-
+#include <omp.h>
 
 #include "LBM.hpp"
 
-
-
-const int maxSteps = 10000; // Maximum number of time steps
+const int maxSteps = 20000; // number of time steps
 const double Re = 10000;
 const double u_lid = 0.5;
 
-const int ITERATIONS_PER_FRAME = 10;
+const int ITERATIONS_PER_FRAME = 50;
 const int ITERATIONS_PER_PROGRESS_UPDATE = 100;
 
-const int NX = 100; // Dimension in the x-direction
-const int NY = 100; // Dimension in the y-direction
+const int NX = 200; // Dimension in the x-direction
+const int NY = 240; // Dimension in the y-direction
 
 int main() {
     // Create the output file for velocity
@@ -28,6 +26,8 @@ int main() {
     }
     file << NX << "\n" << NY << "\n";
 
+    //omp_set_num_threads(10);
+
     LBM lbm(NX, NY, u_lid, Re);
 
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -37,8 +37,8 @@ int main() {
 
         //Every ITERATIONS_PER_FRAME steps, save velocity data
         if (n % ITERATIONS_PER_FRAME == 0) {
-            for (int i = 0; i < lbm.NX; ++i) {
-                for (int j = 0; j < lbm.NY; ++j) {
+            for (int j = 0; j < lbm.NY; ++j) {
+                for (int i = 0; i < lbm.NX; ++i) {
                     double vx = lbm.get_vel(i,j,0); 
                     double vy = lbm.get_vel(i,j,1);
                     double v = sqrt(vx*vx + vy*vy); 

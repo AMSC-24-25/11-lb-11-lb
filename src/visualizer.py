@@ -6,7 +6,8 @@ import sys
 # input file name
 input_file = 'vel_data.txt'
 
-iteration_per_frame = 10
+
+iteration_per_frame = 50
 
 def read_data(file_name):
     with open(file_name, 'r') as f:
@@ -26,7 +27,7 @@ def create_frames(nx, ny, data, num_iterations):
     frames = []
     for iter in range(num_iterations):
         # legge dati per ogni iterazione e salva in una matrice (ny, nx)
-        frame_data = np.array(data[iter * nx * ny:(iter + 1) * nx * ny]).reshape(ny, nx)
+        frame_data = np.array(data[iter * nx * ny:(iter + 1) * nx * ny]).reshape(ny, nx).transpose()
         frame_data = frame_data.T
 
         plt.imshow(frame_data, cmap='plasma', origin='lower')  # 'origin' è impostato su 'lower' per far partire y da 0 in basso

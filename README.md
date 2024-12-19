@@ -179,8 +179,8 @@ It can be observed that although the results with Re = 100 are relatively accura
 
 ### Gallery
 
-#### Re=100 on a 100x100 cavity
-![100x100_re100_steps5000_periteration5_fps24](./media/100x100_re100_steps5000_periteration5_fps24.gif)
-
-#### Re=10000 on a 100x100 cavity
-![100x100_re10000_steps10000_periteration10_fps24](./media/100x100_re10000_steps10000_periteration10_fps24.gif)
+| **Re=100 on a 100x100 cavity**                     | **Re=10000 on a 100x100 cavity**                     |
+|----------------------------------------------------|-----------------------------------------------------|
+| ![100x100_re100_steps5000_periteration5_fps24](./media/100x100_re100_steps5000_periteration5_fps24.gif) | ![100x100_re10000_steps10000_periteration10_fps24](./media/100x100_re10000_steps10000_periteration10_fps24.gif) |
+| **Re=10000 on a 75x50 cavity with an alternative boundary condition** | **Re=10000 on a 240x200 cavity with an alternative boundary condition** |
+| ![75x50_re10000_steps10000_periteration20_fps24_alt1](./media/75x50_re10000_steps10000_periteration20_fps24_alt1.gif) | ![240x200_re10000_steps20000_periteration50_fps24_alt2](./media/240x200_re10000_steps20000_periteration50_fps24_alt2.gif) |
