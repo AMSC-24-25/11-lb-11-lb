@@ -38,34 +38,6 @@ To build the project using CMake, follow these steps:
 We parallelized the code using OpenMP. The main bottleneck in the computation is represented by a single nested for-loop. The code was written so that each iteration was completely independent from the others and so that they all could be executed in parallel. To achieve this we needed to *bufferize* the whole computation so that two sets of memory location were used and then swapped for each iteration.
 We observed a significant improvement in computation time.
 
-<style>
-  .container {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    gap: 2rem;
-  }
-  
-  .column {
-    flex: 1;
-  }
-  
-  table {
-    border-collapse: collapse;
-    width: 100%;
-  }
-
-  
-  h4 {
-    margin-bottom: 1rem;
-  }
-  
-  .note {
-    font-size: 0.9em;
-    margin-bottom: 1rem;
-    color: #666;
-  }
-</style>
 
 ### Scalability
 
@@ -188,39 +160,7 @@ The following tables, for instance, allows to compare the y-component of the vel
 
 It can be observed that although the results with Re = 100 are relatively accurate, there's an error build-up with toward the lower part of the cavity and with increasing Reynolds numbers. That can probably be caused by slightly different parameters and formulae used. We are confident that our code works as intended and that, with some tweaking, we could allign our results with the reference data.
 
-<style>
-  .container2 {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-  }
-  
-  .row2 {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-  
-  .column2 {
-    flex: 1;
-  }
-  
-  .centered2 {
-    display: flex;
-    justify-content: center;
-  }
-  
-  table {
-    border-collapse: collapse;
-    width: 100%;
-  }
 
-  
-  h4 {
-    margin-bottom: 1rem;
-  }
-</style>
 
 <div class="container2">
   <div class="row2">
