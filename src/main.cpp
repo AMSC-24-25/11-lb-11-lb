@@ -3,7 +3,7 @@
 #include <chrono>
 #include <fstream>
 #include <iomanip> 
-
+#include <omp.h>
 
 #include "LBM.hpp"
 
@@ -13,6 +13,7 @@ const int maxSteps = 10000; // Maximum number of time steps
 const double Re = 10000;
 const double u_lid = 0.5;
 
+const int MAX_THREADS = 12;
 const int ITERATIONS_PER_FRAME = 10;
 const int ITERATIONS_PER_PROGRESS_UPDATE = 100;
 
@@ -28,42 +29,17 @@ int main() {
     }
     file << NX << "\n" << NY << "\n";
 
-    LBM lbm(NX, NY, u_lid, Re);
+    for(int threadsCount = 1; threadsCount <= MAX_THREADS; threadsCount++) {
+        LBM lbm(NX, NY, u_lid, Re);
+        omp_set_num_threads(threadsCount);
 
-    auto startTime = std::chrono::high_resolution_clock::now();
+        auto startTime = std::chrono::high_resolution_clock::now();
+        lbm.evolution(maxSteps);
+        auto endTime = std::chrono::high_resolution_clock::now();
 
-    for (int n = 1; n <= maxSteps; n++) {
-        lbm.evolution(); // System evolution
+        auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-        //Every ITERATIONS_PER_FRAME steps, save velocity data
-        if (n % ITERATIONS_PER_FRAME == 0) {
-            for (int i = 0; i < lbm.NX; ++i) {
-                for (int j = 0; j < lbm.NY; ++j) {
-                    double vx = lbm.get_vel(i,j,0); 
-                    double vy = lbm.get_vel(i,j,1);
-                    double v = sqrt(vx*vx + vy*vy); 
-                    file << v << "\n";
-                }
-            }
-            
-        }
-        
-        // Update the progress bar
-        if (n % ITERATIONS_PER_PROGRESS_UPDATE == 0 || n == maxSteps - 1) {
-            float progress = (static_cast<float>(n) / maxSteps);
-            auto currentTime = std::chrono::high_resolution_clock::now();
-            auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
-            
-            double estimatedTotalTime = elapsedTime / progress;
-            int remainingTime = estimatedTotalTime - elapsedTime;
-
-            progress *= 100;
-            std::cout << "\rProgress: " << std::fixed << std::setprecision(2) << progress << "% completed "
-                      << "| Elapsed Time: " << elapsedTime << "s, "
-                      << "Remaining Time (estimated): " << static_cast<int>(remainingTime) << "s"
-                      << std::flush;
-                      
-        }
+        std::cout << "Threads: " << threadsCount << " - " << "Time: " << elapsedTime << "ms" << std::endl;
     }
 
     file.close();
