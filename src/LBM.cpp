@@ -123,7 +123,7 @@ void LBM::compute() {
 void LBM::apply_boundary_conditions() {
     #pragma omp parallel
     {
-        // Parallelizza il primo loop (Left e Right boundaries)
+        // Left e Right boundaries
         #pragma omp for nowait
         for (int j = 1; j < NY - 1; j++) {
             // Left boundary (x = 0)
@@ -140,7 +140,7 @@ void LBM::apply_boundary_conditions() {
             }
         }
 
-        // Parallelizza il secondo loop (Top e Bottom boundaries)
+        // Top e Bottom boundaries
         #pragma omp for
         for (int i = 0; i < NX; i++) {
             // Top boundary (y = NY-1)
